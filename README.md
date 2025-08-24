@@ -38,6 +38,20 @@ The multi-tenancy is implemented using a custom repository approach that automat
 - `TenantAwareRepository` - Custom repository implementation that applies tenant filtering
 - Hibernate filters on all entities to ensure data isolation
 
+## Multi-Tenancy Template
+
+This repository also serves as a template for implementing multi-tenancy in other Spring Boot microservices. The `inventory-service` contains a complete, tested implementation that can be easily adapted for other services.
+
+Key files for the template:
+- `TenantAwareRepository.java` - Custom repository implementation
+- `TenantAwareRepositoryFactoryBean.java` - Factory bean for creating tenant-aware repositories
+- `TenantContextHolder.java` - ThreadLocal-based tenant context management
+- `TenantContextFilter.java` - Servlet filter for extracting tenant ID from HTTP headers
+
+Template documentation:
+- `MULTI_TENANCY_TEMPLATE.md` - Detailed guide for using this repository as a template
+- `create-tenant-service.sh` - Script to create a new service based on this template
+
 ## Getting Started
 
 1. Run the environment check script:
@@ -68,12 +82,18 @@ Unit and integration tests are included to verify the multi-tenancy implementati
 mvn test
 ```
 
+To create a new service based on the multi-tenancy template:
+```bash
+./create-tenant-service.sh order-service
+```
+
 ## Documentation
 
 - `WMS_POC_SETUP.md` - Detailed setup instructions
 - `WMS_POC_PROGRESS.md` - Step-by-step implementation log
 - `API_DOCUMENTATION.md` - API endpoints documentation
 - `MULTI_TENANCY_VERIFICATION.md` - Multi-tenancy implementation verification
+- `MULTI_TENANCY_TEMPLATE.md` - Guide for using this repository as a template for other services
 
 ## License
 
