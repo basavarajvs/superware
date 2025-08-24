@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: wms-postgres
+    environment:
+      POSTGRES_USER: wmsadmin
+      POSTGRES_PASSWORD: wmsadminpass
+      POSTGRES_DB: wms_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0.2
+    container_name: wms-keycloak
+    environment:
+      KC_DB: dev-file
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin123
+    ports:
+      - "8080:8080"
+    command: start-dev
+
+volumes:
+  postgres-data:

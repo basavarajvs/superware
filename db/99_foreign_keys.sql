@@ -1,0 +1,5 @@
+-- ===================================================
+-- FOREIGN KEY CONSTRAINTS
+-- ===================================================
+-- Note: All foreign keys are defined inline in the table definitions.
+-- This file is a placeholder for any deferred foreign key constraints.

@@ -1,0 +1,59 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.bin
+*.class
+*.log
+*.hprof
+*.Heap*
+*.gc*
+
+# IDE
+.idea/
+*.iws
+*.ipr
+*.iml
+*.egg-info/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Spring Boot
+.m2/
+BOOT-INF/
+META-INF/
+
+# Test reports
+surefire-reports/
+failsafe-reports/
+
+# Database
+*.sql.gz
+*.sql.zip
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/

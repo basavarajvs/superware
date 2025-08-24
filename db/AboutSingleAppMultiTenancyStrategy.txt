@@ -1,0 +1,1982 @@
+ Enterprise Multi-Tenancy Strategy for Warehouse Management Systems
+
+  Table of Contents
+   1. Executive Summary (#executive-summary)
+   2. Multi-Tenancy Approaches Overview (#multi-tenancy-approaches-overview)
+   3. Detailed Analysis of Each Approach (#detailed-analysis-of-each-approach)
+   4. Hybrid Multi-Tenancy Architecture (#hybrid-multi-tenancy-architecture)
+   5. Implementation Strategy (#implementation-strategy)
+   6. Code Implementation (#code-implementation)
+   7. Security Considerations (#security-considerations)
+   8. Performance Optimization (#performance-optimization)
+   9. Compliance and Regulatory Requirements (#compliance-and-regulatory-requirements)
+   10. Operational Best Practices (#operational-best-practices)
+   11. Migration Strategy (#migration-strategy)
+   12. Monitoring and Observability (#monitoring-and-observability)
+   13. Conclusion and Recommendations (#conclusion-and-recommendations)
+
+  Executive Summary
+
+  This document presents a comprehensive multi-tenancy strategy for enterprise Warehouse Management Systems (WMS). Based on extensive analysis of scalability,
+  security, vendor concerns, and regulatory requirements, we recommend a hybrid multi-tenancy approach that can be managed by a single application instance while
+  supporting all three primary deployment models:
+
+   1. Shared Schema with Tenant ID Separation
+   2. Schema per Tenant in Shared Databases
+   3. Dedicated Database per Tenant
+
+  This approach provides maximum flexibility, optimal resource utilization, and robust security while maintaining operational simplicity.
+
+  Multi-Tenancy Approaches Overview
+
+  1. Shared Schema with Tenant ID Separation
+  All tenants share the same database schema with data separated by tenant_id columns in tables.
+
+  2. Schema per Tenant in Shared Databases
+  Each tenant gets their own PostgreSQL schema within shared databases.
+
+  3. Dedicated Database per Tenant
+  Each tenant gets their own dedicated database instance.
+
+  Detailed Analysis of Each Approach
+
+  Shared Schema with Tenant ID Separation
+
+  Advantages:
+   - Cost-Effective: Minimal infrastructure overhead
+   - Simple Management: Single database to maintain
+   - Easy Analytics: Cross-tenant reporting straightforward
+   - Quick Provisioning: Instant tenant onboarding
+
+  Disadvantages:
+   - Security Concerns: Risk of cross-tenant data leakage
+   - Performance Overhead: Constant tenant_id filtering
+   - Limited Customization: Difficult to customize per tenant
+   - Compliance Challenges: Harder to prove data isolation
+
+  Schema per Tenant in Shared Databases
+
+  Advantages:
+   - Strong Isolation: Natural data separation at schema level
+   - Good Performance: No query overhead from tenant filtering
+   - Moderate Customization: Schema-level modifications possible
+   - Better Compliance: Clearer audit trails and isolation
+
+  Disadvantages:
+   - Management Complexity: More schemas to monitor
+   - Resource Sharing: Still shares database resources
+   - Limited Scalability: Database-level bottlenecks possible
+
+  Dedicated Database per Tenant
+
+  Advantages:
+   - Maximum Security: Complete data isolation
+   - Optimal Performance: No resource contention
+   - Full Customization: Database-level modifications
+   - Best Compliance: Easiest regulatory compliance
+
+  Disadvantages:
+   - High Cost: Significant infrastructure overhead
+   - Complex Management: Thousands of databases to manage
+   - Operational Overhead: Complex backup/restore processes
+   - Analytics Challenges: Difficult cross-tenant analysis
+
+  Hybrid Multi-Tenancy Architecture
+
+  Tiered Deployment Strategy
+
+
+  ┌────────┬───────────────────────┬────────────────────┬─────────────────────┬──────────────────────────────────────────┐
+  │ Tier   │ Tenant Type           │ Approach           │ Resource Allocation │ Features                                 │
+  ├────────┼───────────────────────┼────────────────────┼─────────────────────┼──────────────────────────────────────────┤
+  │ Tier 1 │ Enterprise/Custom     │ Dedicated Database │ High                │ Full customization, SLA guarantees       │
+  │ Tier 2 │ Professional/Business │ Schema per Tenant  │ Medium              │ Good performance, moderate customization │
+  │ Tier 3 │ Starter/Small         │ Shared Schema      │ Low                 │ Cost-effective, quick provisioning       │
+  └────────┴───────────────────────┴────────────────────┴─────────────────────┴──────────────────────────────────────────┘
+
+
+  Architecture Components
+
+    1 graph TD
+    2     A[Application Instance] --> B[Tenant Resolution Layer]
+    3     B --> C{Deployment Model}
+    4     C --> D[Shared Schema]
+    5     C --> E[Schema per Tenant]
+    6     C --> F[Dedicated Database]
+    7     D --> G[Shared Database]
+    8     E --> G
+    9     F --> H[Dedicated Database Instances]
+   10     G --> I[Connection Pool Manager]
+   11     H --> I
+   12     I --> J[Tenant-Aware Data Access]
+   13     J --> K[Business Logic Layer]
+
+  Implementation Strategy
+
+  1. Tenant Context Management
+
+    1 /**
+    2  * Central tenant context management
+    3  * Maintains tenant information throughout request lifecycle
+    4  */
+    5 @Component
+    6 public class TenantContext {
+    7     private static final ThreadLocal<TenantInfo> contextHolder =
+    8         new ThreadLocal<>();
+    9 
+   10     public static void setTenant(TenantInfo tenantInfo) {
+   11         contextHolder.set(tenantInfo);
+   12     }
+   13 
+   14     public static TenantInfo getCurrentTenant() {
+   15         return contextHolder.get();
+   16     }
+   17 
+   18     public static void clear() {
+   19         contextHolder.remove();
+   20     }
+   21 }
+   22 
+   23 /**
+   24  * Tenant information structure
+   25  * Contains all deployment-specific details
+   26  */
+   27 public class TenantInfo {
+   28     private String tenantId;
+   29     private String tenantName;
+   30     private DeploymentModel deploymentModel;
+   31     private String databaseName;
+   32     private String schemaName;
+   33     private String connectionUrl;
+   34     private int maxUsers;
+   35     private long storageLimitBytes;
+   36     private boolean isActive;
+   37 
+   38     // Constructors, getters, setters...
+   39 }
+
+  2. Deployment Model Enumeration
+
+    1 /**
+    2  * Tenant deployment models
+    3  * Defines how tenant data is isolated
+    4  */
+    5 public enum DeploymentModel {
+    6     SHARED_SCHEMA("Shared Schema"),
+    7     SCHEMA_PER_TENANT("Schema per Tenant"),
+    8     DEDICATED_DATABASE("Dedicated Database");
+    9 
+   10     private final String description;
+   11 
+   12     DeploymentModel(String description) {
+   13         this.description = description;
+   14     }
+   15 
+   16     public String getDescription() {
+   17         return description;
+   18     }
+   19 }
+
+  Code Implementation
+
+  1. Multi-Tenant Data Access Layer
+
+    1 /**
+    2  * Tenant-aware data access abstraction
+    3  * Handles all three deployment approaches
+    4  */
+    5 public interface TenantDataAccess {
+    6     Connection getConnection(TenantContext context);
+    7     <T> List<T> executeQuery(TenantContext context, String sql,
+    8                            Class<T> resultType, Object... params);
+    9     <T> void save(TenantContext context, T entity);
+   10     void executeUpdate(TenantContext context, String sql, Object... params);
+   11 }
+   12 
+   13 /**
+   14  * Implementation for multi-tenant data access
+   15  * Routes requests based on deployment model
+   16  */
+   17 @Component
+   18 public class MultiTenantDataAccess implements TenantDataAccess {
+   19 
+   20     @Autowired
+   21     private DataSource sharedDataSource;
+   22 
+   23     @Autowired
+   24     private DataSourceFactory dedicatedDataSourceFactory;
+   25 
+   26     @Override
+   27     public Connection getConnection(TenantContext context) {
+   28         switch(context.getDeploymentModel()) {
+   29             case SHARED_SCHEMA:
+   30                 Connection conn = sharedDataSource.getConnection();
+   31                 // Return connection with tenant filtering
+   32                 return new TenantAwareConnection(conn, context.getTenantId());
+   33 
+   34             case SCHEMA_PER_TENANT:
+   35                 Connection schemaConn = sharedDataSource.getConnection();
+   36                 try {
+   37                     schemaConn.setSchema(context.getSchemaName());
+   38                 } catch (SQLException e) {
+   39                     throw new DataAccessException("Failed to set schema", e);
+   40                 }
+   41                 return schemaConn;
+   42 
+   43             case DEDICATED_DATABASE:
+   44                 return dedicatedDataSourceFactory.getConnection(
+   45                     context.getDatabaseName());
+   46 
+   47             default:
+   48                 throw new IllegalStateException(
+   49                     "Unknown deployment model: " + context.getDeploymentModel());
+   50         }
+   51     }
+   52 
+   53     @Override
+   54     public <T> List<T> executeQuery(TenantContext context, String sql,
+   55                                   Class<T> resultType, Object... params) {
+   56         Connection conn = getConnection(context);
+   57         try {
+   58             PreparedStatement stmt = conn.prepareStatement(sql);
+   59             // Set parameters
+   60             for (int i = 0; i < params.length; i++) {
+   61                 stmt.setObject(i + 1, params[i]);
+   62             }
+   63             ResultSet rs = stmt.executeQuery();
+   64             return mapResultSetToList(rs, resultType);
+   65         } catch (SQLException e) {
+   66             throw new DataAccessException("Query execution failed", e);
+   67         } finally {
+   68             closeConnection(conn);
+   69         }
+   70     }
+   71 
+   72     // Additional method implementations...
+   73 }
+
+  2. Tenant-Aware Connection Wrapper
+
+    1 /**
+    2  * Connection wrapper for shared schema approach
+    3  * Automatically adds tenant_id filtering to queries
+    4  */
+    5 public class TenantAwareConnection implements Connection {
+    6     private final Connection delegate;
+    7     private final String tenantId;
+    8 
+    9     public TenantAwareConnection(Connection delegate, String tenantId) {
+   10         this.delegate = delegate;
+   11         this.tenantId = tenantId;
+   12     }
+   13 
+   14     @Override
+   15     public PreparedStatement prepareStatement(String sql) throws SQLException {
+   16         // Automatically add tenant_id filter for SELECT statements
+   17         String modifiedSql = addTenantFilter(sql);
+   18         return delegate.prepareStatement(modifiedSql);
+   19     }
+   20 
+   21     private String addTenantFilter(String sql) {
+   22         // Only modify SELECT statements that don't already contain tenant_id
+   23         if (sql.trim().toUpperCase().startsWith("SELECT") &&
+   24             !sql.toLowerCase().contains("tenant_id")) {
+   25 
+   26             // Find WHERE clause or add one
+   27             if (sql.toUpperCase().contains("WHERE")) {
+   28                 return sql + " AND tenant_id = ?";
+   29             } else {
+   30                 return sql + " WHERE tenant_id = ?";
+   31             }
+   32         }
+   33         return sql;
+   34     }
+   35 
+   36     // Delegate all other Connection methods...
+   37     @Override
+   38     public void close() throws SQLException {
+   39         delegate.close();
+   40     }
+   41 
+   42     @Override
+   43     public boolean isClosed() throws SQLException {
+   44         return delegate.isClosed();
+   45     }
+   46 
+   47     // ... (implement all other Connection interface methods)
+   48 }
+
+  3. Dynamic Data Source Routing
+
+    1 /**
+    2  * Dynamic data source routing based on tenant context
+    3  * Works with Spring's AbstractRoutingDataSource
+    4  */
+    5 @Component
+    6 public class TenantRoutingDataSource extends AbstractRoutingDataSource {
+    7 
+    8     @Override
+    9     protected Object determineCurrentLookupKey() {
+   10         TenantInfo tenant = TenantContext.getCurrentTenant();
+   11         if (tenant == null) {
+   12             return "default";
+   13         }
+   14 
+   15         switch(tenant.getDeploymentModel()) {
+   16             case SHARED_SCHEMA:
+   17                 return "shared";
+   18             case SCHEMA_PER_TENANT:
+   19                 return "schema_" + tenant.getSchemaName();
+   20             case DEDICATED_DATABASE:
+   21                 return "db_" + tenant.getDatabaseName();
+   22             default:
+   23                 return "default";
+   24         }
+   25     }
+   26 }
+
+  4. Repository Layer Adaptation
+
+    1 /**
+    2  * Generic repository that works with all deployment approaches
+    3  * Provides unified data access regardless of tenant deployment model
+    4  */
+    5 @Repository
+    6 public class GenericRepository<T> {
+    7 
+    8     @Autowired
+    9     private TenantDataAccess dataAccess;
+   10 
+   11     public List<T> findAll(Class<T> entityClass) {
+   12         TenantContext context = TenantContext.getCurrentTenant();
+   13         String tableName = getTableName(entityClass);
+   14 
+   15         // Works for all deployment models
+   16         String sql = "SELECT * FROM " + tableName;
+   17 
+   18         return dataAccess.executeQuery(context, sql, entityClass);
+   19     }
+   20 
+   21     public Optional<T> findById(Class<T> entityClass, Object id) {
+   22         TenantContext context = TenantContext.getCurrentTenant();
+   23         String tableName = getTableName(entityClass);
+   24         String idColumn = getIdColumnName(entityClass);
+   25 
+   26         // Works for all deployment models
+   27         String sql = "SELECT * FROM " + tableName + " WHERE " + idColumn + " = ?";
+   28 
+   29         List<T> results = dataAccess.executeQuery(context, sql, entityClass, id);
+   30         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+   31     }
+   32 
+   33     public void save(T entity) {
+   34         TenantContext context = TenantContext.getCurrentTenant();
+   35         // Save logic works regardless of deployment model
+   36         dataAccess.save(context, entity);
+   37     }
+   38 
+   39     // Additional CRUD operations...
+   40 }
+
+  5. Service Layer with Transaction Management
+
+    1 /**
+    2  * Service layer with transaction management
+    3  * Works seamlessly across all deployment models
+    4  */
+    5 @Service
+    6 @Transactional
+    7 public class OrderService {
+    8 
+    9     @Autowired
+   10     private OrderRepository orderRepository;
+   11 
+   12     @Autowired
+   13     private InventoryService inventoryService;
+   14 
+   15     @Autowired
+   16     private NotificationService notificationService;
+   17 
+   18     public Order processOrder(Order order) {
+   19         // Works seamlessly across all deployment models
+   20         TenantContext context = TenantContext.getCurrentTenant();
+   21 
+   22         // Business logic that's deployment model agnostic
+   23         validateOrder(order);
+   24         reserveInventory(order);
+   25         Order savedOrder = orderRepository.save(order);
+   26         sendOrderConfirmation(savedOrder);
+   27 
+   28         return savedOrder;
+   29     }
+   30 
+   31     private void validateOrder(Order order) {
+   32         // Order validation logic
+   33         if (order.getItems().isEmpty()) {
+   34             throw new ValidationException("Order must have items");
+   35         }
+   36     }
+   37 
+   38     private void reserveInventory(Order order) {
+   39         // Inventory reservation logic
+   40         for (OrderItem item : order.getItems()) {
+   41             inventoryService.reserveItem(item.getProductId(), item.getQuantity());
+   42         }
+   43     }
+   44 
+   45     private void sendOrderConfirmation(Order order) {
+   46         // Notification logic
+   47         notificationService.sendOrderConfirmation(order);
+   48     }
+   49 }
+
+  6. Tenant Resolution Middleware
+
+    1 /**
+    2  * REST API tenant resolution
+    3  * Extracts tenant information from requests
+    4  */
+    5 @Component
+    6 @Order(1)
+    7 public class TenantResolutionFilter implements Filter {
+    8 
+    9     @Autowired
+   10     private TenantService tenantService;
+   11 
+   12     @Override
+   13     public void doFilter(ServletRequest request, ServletResponse response,
+   14                         FilterChain chain) throws IOException, ServletException {
+   15 
+   16         HttpServletRequest httpRequest = (HttpServletRequest) request;
+   17         String tenantId = resolveTenantId(httpRequest);
+   18 
+   19         if (tenantId != null) {
+   20             TenantInfo tenant = tenantService.getTenantInfo(tenantId);
+   21             if (tenant != null && tenant.isActive()) {
+   22                 TenantContext.setTenant(tenant);
+   23             } else {
+   24                 ((HttpServletResponse) response).setStatus(403);
+   25                 response.getWriter().write("Tenant not found or inactive");
+   26                 return;
+   27             }
+   28         }
+   29 
+   30         try {
+   31             chain.doFilter(request, response);
+   32         } finally {
+   33             TenantContext.clear();
+   34         }
+   35     }
+   36 
+   37     private String resolveTenantId(HttpServletRequest request) {
+   38         // Try multiple resolution strategies
+   39         String tenantId = request.getHeader("X-Tenant-ID");
+   40         if (tenantId != null) return tenantId;
+   41 
+   42         tenantId = request.getParameter("tenantId");
+   43         if (tenantId != null) return tenantId;
+   44 
+   45         // Resolve from subdomain
+   46         String host = request.getHeader("Host");
+   47         if (host != null && host.contains(".")) {
+   48             return host.split("\\.")[0];
+   49         }
+   50 
+   51         return null;
+   52     }
+   53 }
+
+  7. Configuration Management
+
+    1 # application.yml
+    2 spring:
+    3   application:
+    4     name: wms-multitenant
+    5 
+    6   datasource:
+    7     # Shared database configuration
+    8     shared:
+    9       url: jdbc:postgresql://shared.db.company.com/wms
+   10       username: ${SHARED_DB_USER}
+   11       password: ${SHARED_DB_PASSWORD}
+   12       hikari:
+   13         maximum-pool-size: 50
+   14         minimum-idle: 10
+   15 
+   16     # Dedicated database configuration template
+   17     dedicated:
+   18       url-pattern: jdbc:postgresql://{tenantId}.db.company.com/wms
+   19       username: ${DEDICATED_DB_USER}
+   20       password: ${DEDICATED_DB_PASSWORD}
+   21       hikari:
+   22         maximum-pool-size: 20
+   23         minimum-idle: 5
+   24 
+   25 tenants:
+   26   deployment-strategy:
+   27     shared-schema:
+   28       data-source: shared
+   29       max-tenants-per-db: 1000
+   30     schema-per-tenant:
+   31       data-source: shared
+   32       schema-prefix: tenant_
+   33       max-schemas-per-db: 100
+   34     dedicated-database:
+   35       url-pattern: jdbc:postgresql://{tenantId}.db.company.com/wms
+   36       username: ${DB_USER}
+   37       password: ${DB_PASSWORD}
+   38 
+   39   tiers:
+   40     enterprise:
+   41       deployment-model: DEDICATED_DATABASE
+   42       max-users: 10000
+   43       storage-limit-gb: 1000
+   44       features: [FULL_CUSTOMIZATION, PRIORITY_SUPPORT, SLA_GUARANTEES]
+   45 
+   46     professional:
+   47       deployment-model: SCHEMA_PER_TENANT
+   48       max-users: 500
+   49       storage-limit-gb: 100
+   50       features: [MODERATE_CUSTOMIZATION, STANDARD_SUPPORT]
+   51 
+   52     starter:
+   53       deployment-model: SHARED_SCHEMA
+   54       max-users: 10
+   55       storage-limit-gb: 1
+   56       features: [BASIC_FEATURES, COMMUNITY_SUPPORT]
+
+  8. Database Migration Support
+
+    1 /**
+    2  * Multi-tenant database migration manager
+    3  * Handles schema migrations for all deployment models
+    4  */
+    5 @Component
+    6 public class MultiTenantMigrationManager {
+    7 
+    8     @Autowired
+    9     private DataSource sharedDataSource;
+   10 
+   11     @Autowired
+   12     private DataSourceFactory dedicatedDataSourceFactory;
+   13 
+   14     public void migrateTenant(TenantInfo tenant) {
+   15         switch(tenant.getDeploymentModel()) {
+   16             case SHARED_SCHEMA:
+   17                 // Apply migration with tenant_id considerations
+   18                 runMigration(tenant, "sharedDb");
+   19                 break;
+   20 
+   21             case SCHEMA_PER_TENANT:
+   22                 // Create schema if not exists and apply migration
+   23                 createSchemaIfNotExists(tenant.getSchemaName());
+   24                 runMigration(tenant, "sharedDb", tenant.getSchemaName());
+   25                 break;
+   26 
+   27             case DEDICATED_DATABASE:
+   28                 // Apply migration to dedicated database
+   29                 runMigration(tenant, tenant.getDatabaseName());
+   30                 break;
+   31         }
+   32     }
+   33 
+   34     private void createSchemaIfNotExists(String schemaName) {
+   35         try (Connection conn = sharedDataSource.getConnection()) {
+   36             String sql = "CREATE SCHEMA IF NOT EXISTS " + schemaName;
+   37             try (Statement stmt = conn.createStatement()) {
+   38                 stmt.execute(sql);
+   39             }
+   40         } catch (SQLException e) {
+   41             throw new DataAccessException("Failed to create schema: " + schemaName, e);
+   42         }
+   43     }
+   44 
+   45     private void runMigration(TenantInfo tenant, String dataSourceName,
+   46                              String schemaName) {
+   47         // Implementation using Flyway or Liquibase
+   48         Flyway flyway = Flyway.configure()
+   49             .dataSource(sharedDataSource)
+   50             .schemas(schemaName)
+   51             .locations("classpath:db/migration/" + tenant.getDeploymentModel().name().toLowerCase())
+   52             .load();
+   53         flyway.migrate();
+   54     }
+   55 
+   56     private void runMigration(TenantInfo tenant, String databaseName) {
+   57         // Implementation for dedicated database
+   58         DataSource dedicatedDs = dedicatedDataSourceFactory.getDataSource(databaseName);
+   59         Flyway flyway = Flyway.configure()
+   60             .dataSource(dedicatedDs)
+   61             .locations("classpath:db/migration/dedicated")
+   62             .load();
+   63         flyway.migrate();
+   64     }
+   65 }
+
+  Security Considerations
+
+  1. Data Isolation Security
+
+    1 /**
+    2  * Security service for multi-tenant data access
+    3  * Ensures proper tenant data isolation
+    4  */
+    5 @Service
+    6 public class TenantSecurityService {
+    7 
+    8     /**
+    9      * Validates tenant access to requested data
+   10      */
+   11     public void validateTenantAccess(String tenantId, Object entityId,
+   12                                    Class<?> entityType) {
+   13         // Implementation depends on deployment model
+   14         TenantInfo currentTenant = TenantContext.getCurrentTenant();
+   15 
+   16         if (!currentTenant.getTenantId().equals(tenantId)) {
+   17             throw new SecurityException("Access denied: Tenant mismatch");
+   18         }
+   19 
+   20         // Additional validation based on deployment model
+   21         switch(currentTenant.getDeploymentModel()) {
+   22             case SHARED_SCHEMA:
+   23                 // Verify entity belongs to current tenant
+   24                 if (!entityBelongsToTenant(entityId, entityType, tenantId)) {
+   25                     throw new SecurityException("Access denied: Entity not found");
+   26                 }
+   27                 break;
+   28 
+   29             case SCHEMA_PER_TENANT:
+   30             case DEDICATED_DATABASE:
+   31                 // Natural isolation, but still verify entity exists
+   32                 if (!entityExists(entityId, entityType)) {
+   33                     throw new SecurityException("Access denied: Entity not found");
+   34                 }
+   35                 break;
+   36         }
+   37     }
+   38 
+   39     private boolean entityBelongsToTenant(Object entityId, Class<?> entityType,
+   40                                         String tenantId) {
+   41         // Query to verify entity belongs to tenant
+   42         // Implementation specific to entity type
+   43         return true; // Simplified for example
+   44     }
+   45 
+   46     private boolean entityExists(Object entityId, Class<?> entityType) {
+   47         // Check if entity exists (tenant isolation handled by connection)
+   48         return true; // Simplified for example
+   49     }
+   50 }
+
+  2. Role-Based Access Control
+
+    1 /**
+    2  * Multi-tenant role-based access control
+    3  * Manages permissions within tenant context
+    4  */
+    5 @Service
+    6 public class TenantRBACService {
+    7 
+    8     @Autowired
+    9     private UserRepository userRepository;
+   10 
+   11     @Autowired
+   12     private RoleRepository roleRepository;
+   13 
+   14     /**
+   15      * Checks if current user has required permission
+   16      */
+   17     public boolean hasPermission(String permission) {
+   18         TenantInfo tenant = TenantContext.getCurrentTenant();
+   19         UserDetails currentUser = getCurrentUser();
+   20 
+   21         // Get user roles for current tenant
+   22         List<Role> userRoles = roleRepository.findUserRoles(
+   23             currentUser.getUserId(), tenant.getTenantId());
+   24 
+   25         // Check if any role has the required permission
+   26         return userRoles.stream()
+   27             .flatMap(role -> role.getPermissions().stream())
+   28             .anyMatch(perm -> perm.equals(permission));
+   29     }
+   30 
+   31     /**
+   32      * Gets current user's permissions
+   33      */
+   34     public Set<String> getCurrentUserPermissions() {
+   35         TenantInfo tenant = TenantContext.getCurrentTenant();
+   36         UserDetails currentUser = getCurrentUser();
+   37 
+   38         return roleRepository.findUserRoles(currentUser.getUserId(),
+   39                                           tenant.getTenantId())
+   40             .stream()
+   41             .flatMap(role -> role.getPermissions().stream())
+   42             .collect(Collectors.toSet());
+   43     }
+   44 
+   45     private UserDetails getCurrentUser() {
+   46         // Get current authenticated user
+   47         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+   48         return (UserDetails) auth.getPrincipal();
+   49     }
+   50 }
+
+  3. Audit Logging
+
+    1 /**
+    2  * Multi-tenant audit logging
+    3  * Tracks all data modifications with tenant context
+    4  */
+    5 @Entity
+    6 @Table(name = "audit_log")
+    7 public class AuditLog {
+    8     @Id
+    9     @GeneratedValue(strategy = GenerationType.IDENTITY)
+   10     private Long id;
+   11 
+   12     @Column(name = "tenant_id")
+   13     private String tenantId;
+   14 
+   15     @Column(name = "user_id")
+   16     private String userId;
+   17 
+   18     @Column(name = "table_name")
+   19     private String tableName;
+   20 
+   21     @Column(name = "record_id")
+   22     private String recordId;
+   23 
+   24     @Column(name = "action_type")
+   25     @Enumerated(EnumType.STRING)
+   26     private ActionType actionType; // INSERT, UPDATE, DELETE
+   27 
+   28     @Column(name = "old_values")
+   29     private String oldValues; // JSON
+   30 
+   31     @Column(name = "new_values")
+   32     private String newValues; // JSON
+   33 
+   34     @Column(name = "ip_address")
+   35     private String ipAddress;
+   36 
+   37     @Column(name = "user_agent")
+   38     private String userAgent;
+   39 
+   40     @Column(name = "created_at")
+   41     private LocalDateTime createdAt;
+   42 
+   43     // Constructors, getters, setters...
+   44 }
+   45 
+   46 /**
+   47  * Audit logging service
+   48  */
+   49 @Service
+   50 public class AuditLogService {
+   51 
+   52     @Autowired
+   53     private AuditLogRepository auditLogRepository;
+   54 
+   55     /**
+   56      * Logs data modification with tenant context
+   57      */
+   58     @EventListener
+   59     public void handleDataModification(DataModificationEvent event) {
+   60         TenantInfo tenant = TenantContext.getCurrentTenant();
+   61         UserDetails currentUser = getCurrentUser();
+   62 
+   63         AuditLog auditLog = new AuditLog();
+   64         auditLog.setTenantId(tenant.getTenantId());
+   65         auditLog.setUserId(currentUser.getUserId());
+   66         auditLog.setTableName(event.getTableName());
+   67         auditLog.setRecordId(event.getRecordId());
+   68         auditLog.setActionType(event.getActionType());
+   69         auditLog.setOldValues(event.getOldValues());
+   70         auditLog.setNewValues(event.getNewValues());
+   71         auditLog.setIpAddress(getCurrentIpAddress());
+   72         auditLog.setUserAgent(getCurrentUserAgent());
+   73         auditLog.setCreatedAt(LocalDateTime.now());
+   74 
+   75         auditLogRepository.save(auditLog);
+   76     }
+   77 
+   78     private String getCurrentIpAddress() {
+   79         // Extract IP from request context
+   80         return "127.0.0.1"; // Simplified
+   81     }
+   82 
+   83     private String getCurrentUserAgent() {
+   84         // Extract user agent from request context
+   85         return "Unknown"; // Simplified
+   86     }
+   87 
+   88     private UserDetails getCurrentUser() {
+   89         // Get current authenticated user
+   90         return null; // Simplified
+   91     }
+   92 }
+
+  Performance Optimization
+
+  1. Connection Pooling Strategy
+
+    1 /**
+    2  * Multi-tenant connection pooling configuration
+    3  * Optimizes connection management for different deployment models
+    4  */
+    5 @Configuration
+    6 public class TenantConnectionPoolingConfig {
+    7 
+    8     @Bean
+    9     @ConfigurationProperties("spring.datasource.shared.hikari")
+   10     public HikariConfig sharedDataSourceConfig() {
+   11         return new HikariConfig();
+   12     }
+   13 
+   14     @Bean
+   15     @Primary
+   16     public DataSource sharedDataSource() {
+   17         HikariConfig config = sharedDataSourceConfig();
+   18         config.setPoolName("SharedTenantPool");
+   19         config.setMaximumPoolSize(50);
+   20         config.setMinimumIdle(10);
+   21         config.setConnectionTimeout(30000);
+   22         config.setIdleTimeout(600000);
+   23         config.setMaxLifetime(1800000);
+   24 
+   25         return new HikariDataSource(config);
+   26     }
+   27 
+   28     @Bean
+   29     @ConfigurationProperties("spring.datasource.dedicated.hikari")
+   30     public HikariConfig dedicatedDataSourceConfig() {
+   31         return new HikariConfig();
+   32     }
+   33 
+   34     @Bean
+   35     public DataSourceFactory dedicatedDataSourceFactory() {
+   36         HikariConfig config = dedicatedDataSourceConfig();
+   37         config.setPoolName("DedicatedTenantPool");
+   38         config.setMaximumPoolSize(20);
+   39         config.setMinimumIdle(5);
+   40         config.setConnectionTimeout(30000);
+   41         config.setIdleTimeout(600000);
+   42         config.setMaxLifetime(1800000);
+   43 
+   44         return new HikariDataSourceFactory(config);
+   45     }
+   46 }
+
+  2. Caching Strategy
+
+    1 /**
+    2  * Multi-tenant caching configuration
+    3  * Provides tenant-aware caching
+    4  */
+    5 @Configuration
+    6 @EnableCaching
+    7 public class TenantCachingConfig {
+    8 
+    9     @Bean
+   10     public CacheManager cacheManager() {
+   11         RedisCacheManager.Builder builder = RedisCacheManager
+   12             .RedisCacheManagerBuilder
+   13             .fromConnectionFactory(redisConnectionFactory())
+   14             .cacheDefaults(cacheConfiguration());
+   15 
+   16         return builder.build();
+   17     }
+   18 
+   19     @Bean
+   20     public RedisCacheConfiguration cacheConfiguration() {
+   21         return RedisCacheConfiguration.defaultCacheConfig()
+   22             .entryTtl(Duration.ofHours(1))
+   23             .serializeKeysWith(RedisSerializationContext.SerializationPair
+   24                 .fromSerializer(new StringRedisSerializer()))
+   25             .serializeValuesWith(RedisSerializationContext.SerializationPair
+   26                 .fromSerializer(new GenericJackson2JsonRedisSerializer()))
+   27             .computePrefixWith(cacheName -> {
+   28                 TenantInfo tenant = TenantContext.getCurrentTenant();
+   29                 return tenant != null ?
+   30                     tenant.getTenantId() + ":" + cacheName :
+   31                     "default:" + cacheName;
+   32             });
+   33     }
+   34 
+   35     /**
+   36      * Tenant-aware cache interceptor
+   37      */
+   38     @Bean
+   39     public CacheInterceptor tenantCacheInterceptor() {
+   40         CacheInterceptor interceptor = new CacheInterceptor();
+   41         interceptor.setCacheManager(cacheManager());
+   42         interceptor.setKeyGenerator(tenantKeyGenerator());
+   43         return interceptor;
+   44     }
+   45 
+   46     @Bean
+   47     public KeyGenerator tenantKeyGenerator() {
+   48         return (target, method, params) -> {
+   49             TenantInfo tenant = TenantContext.getCurrentTenant();
+   50             String tenantPrefix = tenant != null ? tenant.getTenantId() : "default";
+   51 
+   52             StringBuilder key = new StringBuilder();
+   53             key.append(tenantPrefix).append(":");
+   54             key.append(target.getClass().getSimpleName()).append(":");
+   55             key.append(method.getName());
+   56 
+   57             for (Object param : params) {
+   58                 key.append(":").append(param != null ? param.toString() : "null");
+   59             }
+   60 
+   61             return key.toString();
+   62         };
+   63     }
+   64 }
+
+  3. Query Optimization
+
+    1 /**
+    2  * Multi-tenant query optimization
+    3  * Provides deployment model-specific optimizations
+    4  */
+    5 @Service
+    6 public class TenantQueryOptimizer {
+    7 
+    8     /**
+    9      * Optimizes query based on deployment model
+   10      */
+   11     public String optimizeQuery(String sql) {
+   12         TenantInfo tenant = TenantContext.getCurrentTenant();
+   13 
+   14         switch(tenant.getDeploymentModel()) {
+   15             case SHARED_SCHEMA:
+   16                 return optimizeSharedSchemaQuery(sql);
+   17             case SCHEMA_PER_TENANT:
+   18                 return optimizeSchemaPerTenantQuery(sql);
+   19             case DEDICATED_DATABASE:
+   20                 return optimizeDedicatedDatabaseQuery(sql);
+   21             default:
+   22                 return sql;
+   23         }
+   24     }
+   25 
+   26     private String optimizeSharedSchemaQuery(String sql) {
+   27         // Add tenant_id hints for query planner
+   28         // Add partitioning hints if using table partitioning
+   29         return sql;
+   30     }
+   31 
+   32     private String optimizeSchemaPerTenantQuery(String sql) {
+   33         // Optimize for single-tenant schema
+   34         // Remove unnecessary joins, filters, etc.
+   35         return sql;
+   36     }
+   37 
+   38     private String optimizeDedicatedDatabaseQuery(String sql) {
+   39         // Full optimization for dedicated database
+   40         // Can use database-specific features
+   41         return sql;
+   42     }
+   43 
+   44     /**
+   45      * Provides index recommendations for deployment model
+   46      */
+   47     public List<String> getIndexRecommendations(String tableName) {
+   48         TenantInfo tenant = TenantContext.getCurrentTenant();
+   49 
+   50         switch(tenant.getDeploymentModel()) {
+   51             case SHARED_SCHEMA:
+   52                 return Arrays.asList(
+   53                     "CREATE INDEX idx_" + tableName + "_tenant_id ON " + tableName + "(tenant_id)",
+   54                     "CREATE INDEX idx_" + tableName + "_tenant_created ON " + tableName + "(tenant_id, created_at)"
+   55                 );
+   56 
+   57             case SCHEMA_PER_TENANT:
+   58             case DEDICATED_DATABASE:
+   59                 return Arrays.asList(
+   60                     "CREATE INDEX idx_" + tableName + "_created ON " + tableName + "(created_at)",
+   61                     "CREATE INDEX idx_" + tableName + "_status ON " + tableName + "(status)"
+   62                 );
+   63 
+   64             default:
+   65                 return Collections.emptyList();
+   66         }
+   67     }
+   68 }
+
+  Compliance and Regulatory Requirements
+
+  1. GDPR Compliance
+
+    1 /**
+    2  * GDPR compliance service for multi-tenant environments
+    3  * Handles data protection requirements
+    4  */
+    5 @Service
+    6 public class GDPRComplianceService {
+    7 
+    8     @Autowired
+    9     private DataSubjectRepository dataSubjectRepository;
+   10 
+   11     @Autowired
+   12     private PersonalDataRepository personalDataRepository;
+   13 
+   14     /**
+   15      * Handles right to erasure requests
+   16      */
+   17     @Transactional
+   18     public void handleRightToErasure(String dataSubjectId) {
+   19         TenantInfo tenant = TenantContext.getCurrentTenant();
+   20 
+   21         // Find all personal data for the data subject
+   22         List<PersonalData> personalDataList =
+   23             personalDataRepository.findByDataSubjectIdAndTenantId(
+   24                 dataSubjectId, tenant.getTenantId());
+   25 
+   26         // Delete all personal data
+   27         for (PersonalData personalData : personalDataList) {
+   28             personalDataRepository.delete(personalData);
+   29         }
+   30 
+   31         // Delete data subject record
+   32         dataSubjectRepository.deleteByIdAndTenantId(
+   33             dataSubjectId, tenant.getTenantId());
+   34 
+   35         // Log the erasure
+   36         logGDPRActivity("DATA_ERASURE", dataSubjectId,
+   37                        "Personal data erased for data subject");
+   38     }
+   39 
+   40     /**
+   41      * Handles data portability requests
+   42      */
+   43     public DataPortabilityPackage handleDataPortability(String dataSubjectId) {
+   44         TenantInfo tenant = TenantContext.getCurrentTenant();
+   45 
+   46         // Collect all personal data for the data subject
+   47         List<PersonalData> personalDataList =
+   48             personalDataRepository.findByDataSubjectIdAndTenantId(
+   49                 dataSubjectId, tenant.getTenantId());
+   50 
+   51         // Create portable data package
+   52         DataPortabilityPackage packageData = new DataPortabilityPackage();
+   53         packageData.setDataSubjectId(dataSubjectId);
+   54         packageData.setTenantId(tenant.getTenantId());
+   55         packageData.setExportDate(LocalDateTime.now());
+   56         packageData.setPersonalData(personalDataList);
+   57 
+   58         // Convert to standard format (JSON, CSV, etc.)
+   59         return packageData;
+   60     }
+   61 
+   62     /**
+   63      * Logs GDPR-related activities
+   64      */
+   65     private void logGDPRActivity(String activityType, String dataSubjectId,
+   66                                String description) {
+   67         GDPRLog log = new GDPRLog();
+   68         log.setActivityType(activityType);
+   69         log.setDataSubjectId(dataSubjectId);
+   70         log.setTenantId(TenantContext.getCurrentTenant().getTenantId());
+   71         log.setDescription(description);
+   72         log.setTimestamp(LocalDateTime.now());
+   73 
+   74         // Save to GDPR audit log
+   75         gdprLogRepository.save(log);
+   76     }
+   77 }
+
+  2. HIPAA Compliance
+
+    1 /**
+    2  * HIPAA compliance service for healthcare-related WMS
+    3  * Handles protected health information requirements
+    4  */
+    5 @Service
+    6 public class HIPAAComplianceService {
+    7 
+    8     @Autowired
+    9     private PHIRepository phiRepository;
+   10 
+   11     @Autowired
+   12     private AuditLogService auditLogService;
+   13 
+   14     /**
+   15      * Encrypts PHI data
+   16      */
+   17     public String encryptPHI(String plainText) {
+   18         // Implementation using strong encryption (AES-256)
+   19         return encrypt(plainText, getEncryptionKey());
+   20     }
+   21 
+   22     /**
+   23      * Decrypts PHI data
+   24      */
+   25     public String decryptPHI(String encryptedText) {
+   26         // Implementation using strong decryption
+   27         return decrypt(encryptedText, getEncryptionKey());
+   28     }
+   29 
+   30     /**
+   31      * Logs access to PHI data
+   32      */
+   33     public void logPHIAccess(String phiId, String userId, String reason) {
+   34         PHIActivityLog log = new PHIActivityLog();
+   35         log.setPhiId(phiId);
+   36         log.setUserId(userId);
+   37         log.setTenantId(TenantContext.getCurrentTenant().getTenantId());
+   38         log.setAccessReason(reason);
+   39         log.setAccessTime(LocalDateTime.now());
+   40         log.setIpAddress(getCurrentIpAddress());
+   41 
+   42         phiActivityLogRepository.save(log);
+   43 
+   44         // Also log to general audit trail
+   45         auditLogService.logActivity("PHI_ACCESS",
+   46             "Accessed PHI record: " + phiId + " for reason: " + reason);
+   47     }
+   48 
+   49     /**
+   50      * Ensures minimum necessary access to PHI
+   51      */
+   52     public boolean hasMinimumNecessaryAccess(String phiId, String userId) {
+   53         // Implementation to verify user has minimum necessary access
+   54         return true; // Simplified
+   55     }
+   56 
+   57     private String getEncryptionKey() {
+   58         // Secure key management implementation
+   59         return "secure-key"; // Simplified
+   60     }
+   61 
+   62     private String encrypt(String plainText, String key) {
+   63         // Encryption implementation
+   64         return "encrypted"; // Simplified
+   65     }
+   66 
+   67     private String decrypt(String encryptedText, String key) {
+   68         // Decryption implementation
+   69         return "decrypted"; // Simplified
+   70     }
+   71 
+   72     private String getCurrentIpAddress() {
+   73         // Extract from request context
+   74         return "127.0.0.1"; // Simplified
+   75     }
+   76 }
+
+  Operational Best Practices
+
+  1. Monitoring and Alerting
+
+    1 /**
+    2  * Multi-tenant monitoring and alerting
+    3  * Provides tenant-aware monitoring capabilities
+    4  */
+    5 @Component
+    6 public class TenantMonitoringService {
+    7 
+    8     @Autowired
+    9     private MeterRegistry meterRegistry;
+   10 
+   11     /**
+   12      * Records tenant-specific metrics
+   13      */
+   14     public void recordQueryMetrics(String queryType, long executionTime) {
+   15         TenantInfo tenant = TenantContext.getCurrentTenant();
+   16 
+   17         Timer.Sample sample = Timer.start(meterRegistry);
+   18         sample.stop(Timer.builder("database.query.time")
+   19             .tag("tenant_id", tenant.getTenantId())
+   20             .tag("tenant_tier", tenant.getDeploymentModel().name())
+   21             .tag("query_type", queryType)
+   22             .register(meterRegistry));
+   23     }
+   24 
+   25     /**
+   26      * Records tenant resource usage
+   27      */
+   28     public void recordResourceUsage(String resourceType, long usage) {
+   29         TenantInfo tenant = TenantContext.getCurrentTenant();
+   30 
+   31         Gauge.builder("tenant.resource.usage")
+   32             .tag("tenant_id", tenant.getTenantId())
+   33             .tag("tenant_tier", tenant.getDeploymentModel().name())
+   34             .tag("resource_type", resourceType)
+   35             .register(meterRegistry, usage);
+   36     }
+   37 
+   38     /**
+   39      * Sets up tenant-specific alerts
+   40      */
+   41     public void setupTenantAlerts() {
+   42         TenantInfo tenant = TenantContext.getCurrentTenant();
+   43 
+   44         // Set up alerts based on tenant tier
+   45         switch(tenant.getDeploymentModel()) {
+   46             case SHARED_SCHEMA:
+   47                 setupSharedSchemaAlerts(tenant);
+   48                 break;
+   49             case SCHEMA_PER_TENANT:
+   50                 setupSchemaPerTenantAlerts(tenant);
+   51                 break;
+   52             case DEDICATED_DATABASE:
+   53                 setupDedicatedDatabaseAlerts(tenant);
+   54                 break;
+   55         }
+   56     }
+   57 
+   58     private void setupSharedSchemaAlerts(TenantInfo tenant) {
+   59         // Alerts for shared schema tenants
+   60         // Monitor query performance, resource usage, etc.
+   61     }
+   62 
+   63     private void setupSchemaPerTenantAlerts(TenantInfo tenant) {
+   64         // Alerts for schema-per-tenant
+   65         // Monitor schema size, connection usage, etc.
+   66     }
+   67 
+   68     private void setupDedicatedDatabaseAlerts(TenantInfo tenant) {
+   69         // Alerts for dedicated database tenants
+   70         // Monitor database performance, backups, etc.
+   71     }
+   72 }
+
+  2. Backup and Recovery
+
+     1 /**
+     2  * Multi-tenant backup and recovery management
+     3  * Handles backup strategies for different deployment models
+     4  */
+     5 @Service
+     6 public class TenantBackupService {
+     7 
+     8     @Autowired
+     9     private TenantRepository tenantRepository;
+    10 
+    11     /**
+    12      * Creates backup based on deployment model
+    13      */
+    14     public BackupInfo createBackup(String tenantId) {
+    15         TenantInfo tenant = tenantRepository.findByTenantId(tenantId);
+    16 
+    17         switch(tenant.getDeploymentModel()) {
+    18             case SHARED_SCHEMA:
+    19                 return createSharedSchemaBackup(tenant);
+    20             case SCHEMA_PER_TENANT:
+    21                 return createSchemaPerTenantBackup(tenant);
+    22             case DEDICATED_DATABASE:
+    23                 return createDedicatedDatabaseBackup(tenant);
+    24             default:
+    25                 throw new IllegalArgumentException("Unknown deployment model");
+    26         }
+    27     }
+    28 
+    29     private BackupInfo createSharedSchemaBackup(TenantInfo tenant) {
+    30         // Create backup of tenant data from shared schema
+    31         // Use pg_dump with tenant_id filter or custom backup script
+    32         String backupCommand = String.format(
+    33             "pg_dump --schema=public --table='*\"%s\"*' --data-only %s > %s.sql",
+    34             tenant.getTenantId(),
+    35             getDatabaseUrl(),
+    36             getBackupFileName(tenant)
+    37         );
+    38 
+    39         executeBackupCommand(backupCommand);
+    40 
+    41         return createBackupInfo(tenant, "shared_schema");
+    42     }
+    43 
+    44     private BackupInfo createSchemaPerTenantBackup(TenantInfo tenant) {
+    45         // Create backup of entire tenant schema
+    46         String backupCommand = String.format(
+    47             "pg_dump --schema=%s %s > %s.sql",
+    48             tenant.getSchemaName(),
+    49             getDatabaseUrl(),
+    50             getBackupFileName(tenant)
+    51         );
+    52 
+    53         executeBackupCommand(backupCommand);
+    54 
+    55         return createBackupInfo(tenant, "schema_per_tenant");
+    56     }
+    57 
+    58     private BackupInfo createDedicatedDatabaseBackup(TenantInfo tenant) {
+    59         // Create backup of dedicated database
+    60         String backupCommand = String.format(
+    61             "pg_dump %s > %s.sql",
+    62             getTenantDatabaseUrl(tenant),
+    63             getBackupFileName(tenant)
+    64         );
+    65 
+    66         executeBackupCommand(backupCommand);
+    67 
+    68         return createBackupInfo(tenant, "dedicated_database");
+    69     }
+    70 
+    71     /**
+    72      * Restores backup based on deployment model
+    73      */
+    74     public void restoreBackup(String tenantId, String backupFile) {
+    75         TenantInfo tenant = tenantRepository.findByTenantId(tenantId);
+    76 
+    77         switch(tenant.getDeploymentModel()) {
+    78             case SHARED_SCHEMA:
+    79                 restoreSharedSchemaBackup(tenant, backupFile);
+    80                 break;
+    81             case SCHEMA_PER_TENANT:
+    82                 restoreSchemaPerTenantBackup(tenant, backupFile);
+    83                 break;
+    84             case DEDICATED_DATABASE:
+    85                 restoreDedicatedDatabaseBackup(tenant, backupFile);
+    86                 break;
+    87         }
+    88     }
+    89 
+    90     private void restoreSharedSchemaBackup(TenantInfo tenant, String backupFile) {
+    91         // Restore tenant data to shared schema
+    92         String restoreCommand = String.format(
+    93             "psql %s < %s",
+    94             getDatabaseUrl(),
+    95             backupFile
+    96         );
+    97 
+    98         executeRestoreCommand(restoreCommand);
+    99     }
+   100 
+   101     private void restoreSchemaPerTenantBackup(TenantInfo tenant, String backupFile) {
+   102         // Restore tenant schema
+   103         String restoreCommand = String.format(
+   104             "psql %s < %s",
+   105             getDatabaseUrl(),
+   106             backupFile
+   107         );
+   108 
+   109         executeRestoreCommand(restoreCommand);
+   110     }
+   111 
+   112     private void restoreDedicatedDatabaseBackup(TenantInfo tenant, String backupFile) {
+   113         // Restore dedicated database
+   114         String restoreCommand = String.format(
+   115             "psql %s < %s",
+   116             getTenantDatabaseUrl(tenant),
+   117             backupFile
+   118         );
+   119 
+   120         executeRestoreCommand(restoreCommand);
+   121     }
+   122 
+   123     private String getDatabaseUrl() {
+   124         // Return shared database URL
+   125         return "postgresql://localhost:5432/wms";
+   126     }
+   127 
+   128     private String getTenantDatabaseUrl(TenantInfo tenant) {
+   129         // Return tenant-specific database URL
+   130         return "postgresql://localhost:5432/" + tenant.getDatabaseName();
+   131     }
+   132 
+   133     private String getBackupFileName(TenantInfo tenant) {
+   134         return "backup_" + tenant.getTenantId() + "_" +
+   135                LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+   136     }
+   137 
+   138     private void executeBackupCommand(String command) {
+   139         // Execute backup command
+   140         try {
+   141             Process process = Runtime.getRuntime().exec(command);
+   142             process.waitFor();
+   143         } catch (Exception e) {
+   144             throw new RuntimeException("Backup failed", e);
+   145         }
+   146     }
+   147 
+   148     private void executeRestoreCommand(String command) {
+   149         // Execute restore command
+   150         try {
+   151             Process process = Runtime.getRuntime().exec(command);
+   152             process.waitFor();
+   153         } catch (Exception e) {
+   154             throw new RuntimeException("Restore failed", e);
+   155         }
+   156     }
+   157 
+   158     private BackupInfo createBackupInfo(TenantInfo tenant, String backupType) {
+   159         BackupInfo info = new BackupInfo();
+   160         info.setTenantId(tenant.getTenantId());
+   161         info.setBackupType(backupType);
+   162         info.setBackupTime(LocalDateTime.now());
+   163         info.setStatus("COMPLETED");
+   164         return info;
+   165     }
+   166 }
+
+  3. Tenant Onboarding and Provisioning
+
+     1 /**
+     2  * Tenant onboarding and provisioning service
+     3  * Handles new tenant setup across all deployment models
+     4  */
+     5 @Service
+     6 public class TenantProvisioningService {
+     7 
+     8     @Autowired
+     9     private TenantRepository tenantRepository;
+    10 
+    11     @Autowired
+    12     private UserRepository userRepository;
+    13 
+    14     @Autowired
+    15     private RoleRepository roleRepository;
+    16 
+    17     @Autowired
+    18     private MultiTenantMigrationManager migrationManager;
+    19 
+    20     /**
+    21      * Provisions new tenant
+    22      */
+    23     @Transactional
+    24     public TenantInfo provisionTenant(TenantProvisioningRequest request) {
+    25         // Determine deployment model based on tenant tier
+    26         DeploymentModel deploymentModel = determineDeploymentModel(request.getTier());
+    27 
+    28         // Create tenant record
+    29         TenantInfo tenant = new TenantInfo();
+    30         tenant.setTenantId(generateTenantId());
+    31         tenant.setTenantName(request.getTenantName());
+    32         tenant.setDeploymentModel(deploymentModel);
+    33         tenant.setMaxUsers(request.getMaxUsers());
+    34         tenant.setStorageLimitBytes(request.getStorageLimitGb() * 1024L * 1024L * 1024L);
+    35         tenant.setIsActive(true);
+    36 
+    37         // Set deployment-specific properties
+    38         switch(deploymentModel) {
+    39             case SHARED_SCHEMA:
+    40                 // No additional setup needed
+    41                 break;
+    42             case SCHEMA_PER_TENANT:
+    43                 tenant.setSchemaName("tenant_" + tenant.getTenantId());
+    44                 break;
+    45             case DEDICATED_DATABASE:
+    46                 tenant.setDatabaseName("wms_" + tenant.getTenantId());
+    47                 break;
+    48         }
+    49 
+    50         // Save tenant configuration
+    51         tenantRepository.save(tenant);
+    52 
+    53         // Perform deployment-specific setup
+    54         setupTenantInfrastructure(tenant);
+    55 
+    56         // Create initial admin user
+    57         createInitialUser(tenant, request.getAdminEmail());
+    58 
+    59         // Run initial database migrations
+    60         migrationManager.migrateTenant(tenant);
+    61 
+    62         // Setup initial roles and permissions
+    63         setupInitialRoles(tenant);
+    64 
+    65         // Send welcome email
+    66         sendWelcomeEmail(tenant, request.getAdminEmail());
+    67 
+    68         return tenant;
+    69     }
+    70 
+    71     private DeploymentModel determineDeploymentModel(TenantTier tier) {
+    72         switch(tier) {
+    73             case ENTERPRISE:
+    74                 return DeploymentModel.DEDICATED_DATABASE;
+    75             case PROFESSIONAL:
+    76                 return DeploymentModel.SCHEMA_PER_TENANT;
+    77             case STARTER:
+    78             default:
+    79                 return DeploymentModel.SHARED_SCHEMA;
+    80         }
+    81     }
+    82 
+    83     private void setupTenantInfrastructure(TenantInfo tenant) {
+    84         switch(tenant.getDeploymentModel()) {
+    85             case SHARED_SCHEMA:
+    86                 // No infrastructure setup needed
+    87                 break;
+    88             case SCHEMA_PER_TENANT:
+    89                 createTenantSchema(tenant);
+    90                 break;
+    91             case DEDICATED_DATABASE:
+    92                 createTenantDatabase(tenant);
+    93                 break;
+    94         }
+    95     }
+    96 
+    97     private void createTenantSchema(TenantInfo tenant) {
+    98         // Create schema for tenant
+    99         String sql = "CREATE SCHEMA " + tenant.getSchemaName();
+   100         // Execute SQL using appropriate connection
+   101     }
+   102 
+   103     private void createTenantDatabase(TenantInfo tenant) {
+   104         // Create dedicated database for tenant
+   105         String sql = "CREATE DATABASE " + tenant.getDatabaseName();
+   106         // Execute SQL using superuser connection
+   107     }
+   108 
+   109     private void createInitialUser(TenantInfo tenant, String adminEmail) {
+   110         User adminUser = new User();
+   111         adminUser.setTenantId(tenant.getTenantId());
+   112         adminUser.setEmail(adminEmail);
+   113         adminUser.setUsername("admin");
+   114         adminUser.setPassword(encryptPassword("defaultPassword123!"));
+   115         adminUser.setFirstName("Admin");
+   116         adminUser.setLastName("User");
+   117         adminUser.setIsActive(true);
+   118 
+   119         userRepository.save(adminUser);
+   120     }
+   121 
+   122     private void setupInitialRoles(TenantInfo tenant) {
+   123         // Create default roles for tenant
+   124         Role adminRole = new Role();
+   125         adminRole.setTenantId(tenant.getTenantId());
+   126         adminRole.setRoleName("ADMIN");
+   127         adminRole.setDescription("Administrator role with full access");
+   128         adminRole.setPermissions(Arrays.asList(
+   129             "TENANT_ADMIN", "USER_MANAGE", "DATA_ACCESS", "REPORTS_VIEW"
+   130         ));
+   131 
+   132         roleRepository.save(adminRole);
+   133     }
+   134 
+   135     private String generateTenantId() {
+   136         return "T" + System.currentTimeMillis() +
+   137                new Random().nextInt(1000);
+   138     }
+   139 
+   140     private String encryptPassword(String password) {
+   141         // Password encryption implementation
+   142         return "encrypted"; // Simplified
+   143     }
+   144 
+   145     private void sendWelcomeEmail(TenantInfo tenant, String adminEmail) {
+   146         // Send welcome email with setup instructions
+   147         // Include initial login credentials, documentation links, etc.
+   148     }
+   149 }
+
+  Migration Strategy
+
+  1. Tier Migration Service
+
+     1 /**
+     2  * Tenant tier migration service
+     3  * Handles migration between deployment models
+     4  */
+     5 @Service
+     6 public class TenantTierMigrationService {
+     7 
+     8     @Autowired
+     9     private TenantRepository tenantRepository;
+    10 
+    11     @Autowired
+    12     private TenantBackupService backupService;
+    13 
+    14     @Autowired
+    15     private MultiTenantMigrationManager migrationManager;
+    16 
+    17     /**
+    18      * Migrates tenant to new deployment model
+    19      */
+    20     @Transactional
+    21     public MigrationResult migrateTenant(String tenantId, DeploymentModel newModel) {
+    22         TenantInfo tenant = tenantRepository.findByTenantId(tenantId);
+    23         DeploymentModel oldModel = tenant.getDeploymentModel();
+    24 
+    25         // Validate migration is possible
+    26         if (!isMigrationPossible(oldModel, newModel)) {
+    27             throw new IllegalArgumentException(
+    28                 "Migration from " + oldModel + " to " + newModel + " not supported");
+    29         }
+    30 
+    31         // Create backup before migration
+    32         BackupInfo backup = backupService.createBackup(tenantId);
+    33 
+    34         try {
+    35             // Perform migration
+    36             switch(newModel) {
+    37                 case SHARED_SCHEMA:
+    38                     return migrateToSharedSchema(tenant, oldModel);
+    39                 case SCHEMA_PER_TENANT:
+    40                     return migrateToSchemaPerTenant(tenant, oldModel);
+    41                 case DEDICATED_DATABASE:
+    42                     return migrateToDedicatedDatabase(tenant, oldModel);
+    43                 default:
+    44                     throw new IllegalArgumentException("Unknown deployment model");
+    45             }
+    46         } catch (Exception e) {
+    47             // Restore from backup if migration fails
+    48             backupService.restoreBackup(tenantId, backup.getBackupFile());
+    49             throw new RuntimeException("Migration failed, restored from backup", e);
+    50         }
+    51     }
+    52 
+    53     private boolean isMigrationPossible(DeploymentModel from, DeploymentModel to) {
+    54         // Define supported migration paths
+    55         // Most migrations are possible, but some may have restrictions
+    56         return true;
+    57     }
+    58 
+    59     private MigrationResult migrateToSharedSchema(TenantInfo tenant,
+    60                                                DeploymentModel oldModel) {
+    61         // Migration logic to shared schema
+    62         MigrationResult result = new MigrationResult();
+    63         result.setTenantId(tenant.getTenantId());
+    64         result.setFromModel(oldModel);
+    65         result.setToModel(DeploymentModel.SHARED_SCHEMA);
+    66         result.setStartTime(LocalDateTime.now());
+    67 
+    68         // Implementation details:
+    69         // 1. Export data from current deployment
+    70         // 2. Transform data to include tenant_id
+    71         // 3. Import data to shared schema
+    72         // 4. Update tenant configuration
+    73         // 5. Validate migration
+    74 
+    75         result.setEndTime(LocalDateTime.now());
+    76         result.setStatus("COMPLETED");
+    77         return result;
+    78     }
+    79 
+    80     private MigrationResult migrateToSchemaPerTenant(TenantInfo tenant,
+    81                                                    DeploymentModel oldModel) {
+    82         // Migration logic to schema per tenant
+    83         MigrationResult result = new MigrationResult();
+    84         result.setTenantId(tenant.getTenantId());
+    85         result.setFromModel(oldModel);
+    86         result.setToModel(DeploymentModel.SCHEMA_PER_TENANT);
+    87         result.setStartTime(LocalDateTime.now());
+    88 
+    89         // Implementation details:
+    90         // 1. Create new schema
+    91         // 2. Export data from current deployment
+    92         // 3. Transform data to remove tenant_id (if coming from shared)
+    93         // 4. Import data to new schema
+    94         // 5. Update tenant configuration
+    95         // 6. Validate migration
+    96 
+    97         result.setEndTime(LocalDateTime.now());
+    98         result.setStatus("COMPLETED");
+    99         return result;
+   100     }
+   101 
+   102     private MigrationResult migrateToDedicatedDatabase(TenantInfo tenant,
+   103                                                      DeploymentModel oldModel) {
+   104         // Migration logic to dedicated database
+   105         MigrationResult result = new MigrationResult();
+   106         result.setTenantId(tenant.getTenantId());
+   107         result.setFromModel(oldModel);
+   108         result.setToModel(DeploymentModel.DEDICATED_DATABASE);
+   109         result.setStartTime(LocalDateTime.now());
+   110 
+   111         // Implementation details:
+   112         // 1. Create new database
+   113         // 2. Export data from current deployment
+   114         // 3. Transform data to remove tenant_id (if coming from shared)
+   115         // 4. Import data to new database
+   116         // 5. Update tenant configuration
+   117         // 6. Update connection strings
+   118         // 7. Validate migration
+   119 
+   120         result.setEndTime(LocalDateTime.now());
+   121         result.setStatus("COMPLETED");
+   122         return result;
+   123     }
+   124 }
+
+  2. Gradual Migration Strategy
+
+    1 /**
+    2  * Gradual migration strategy
+    3  * Allows tenants to be migrated over time without downtime
+    4  */
+    5 @Service
+    6 public class GradualMigrationStrategy {
+    7 
+    8     @Autowired
+    9     private TenantRepository tenantRepository;
+   10 
+   11     @Autowired
+   12     private TenantTierMigrationService migrationService;
+   13 
+   14     /**
+   15      * Plans gradual migration for multiple tenants
+   16      */
+   17     public MigrationPlan createMigrationPlan(List<String> tenantIds,
+   18                                            DeploymentModel targetModel,
+   19                                            LocalDateTime startDate,
+   20                                            Duration migrationWindow) {
+   21         MigrationPlan plan = new MigrationPlan();
+   22         plan.setTargetModel(targetModel);
+   23         plan.setStartDate(startDate);
+   24         plan.setMigrationWindow(migrationWindow);
+   25 
+   26         List<MigrationTask> tasks = new ArrayList<>();
+   27         LocalDateTime currentSlot = startDate;
+   28 
+   29         for (String tenantId : tenantIds) {
+   30             MigrationTask task = new MigrationTask();
+   31             task.setTenantId(tenantId);
+   32             task.setScheduledTime(currentSlot);
+   33             task.setStatus("SCHEDULED");
+   34 
+   35             tasks.add(task);
+   36 
+   37             // Move to next time slot
+   38             currentSlot = currentSlot.plus(migrationWindow);
+   39         }
+   40 
+   41         plan.setTasks(tasks);
+   42         return plan;
+   43     }
+   44 
+   45     /**
+   46      * Executes migration plan
+   47      */
+   48     public void executeMigrationPlan(MigrationPlan plan) {
+   49         for (MigrationTask task : plan.getTasks()) {
+   50             try {
+   51                 // Wait until scheduled time
+   52                 waitForScheduledTime(task.getScheduledTime());
+   53 
+   54                 // Execute migration
+   55                 MigrationResult result = migrationService.migrateTenant(
+   56                     task.getTenantId(), plan.getTargetModel());
+   57 
+   58                 task.setStatus("COMPLETED");
+   59                 task.setResult(result);
+   60 
+   61             } catch (Exception e) {
+   62                 task.setStatus("FAILED");
+   63                 task.setError(e.getMessage());
+   64 
+   65                 // Log error and continue with next tenant
+   66                 logError("Migration failed for tenant: " + task.getTenantId(), e);
+   67             }
+   68         }
+   69     }
+   70 
+   71     private void waitForScheduledTime(LocalDateTime scheduledTime) {
+   72         Duration waitTime = Duration.between(LocalDateTime.now(), scheduledTime);
+   73         if (waitTime.isPositive()) {
+   74             try {
+   75                 Thread.sleep(waitTime.toMillis());
+   76             } catch (InterruptedException e) {
+   77                 Thread.currentThread().interrupt();
+   78                 throw new RuntimeException("Interrupted while waiting", e);
+   79             }
+   80         }
+   81     }
+   82 
+   83     private void logError(String message, Exception e) {
+   84         // Log error to monitoring system
+   85         System.err.println(message + ": " + e.getMessage());
+   86     }
+   87 }
+
+  Monitoring and Observability
+
+  1. Distributed Tracing
+
+    1 /**
+    2  * Multi-tenant distributed tracing
+    3  * Provides tenant-aware tracing across services
+    4  */
+    5 @Component
+    6 public class TenantTracingService {
+    7 
+    8     @Autowired
+    9     private Tracer tracer;
+   10 
+   11     /**
+   12      * Starts tenant-aware span
+   13      */
+   14     public Span startTenantSpan(String operationName) {
+   15         TenantInfo tenant = TenantContext.getCurrentTenant();
+   16 
+   17         Span span = tracer.nextSpan().name(operationName);
+   18         span.tag("tenant.id", tenant != null ? tenant.getTenantId() : "unknown");
+   19         span.tag("tenant.deployment", tenant != null ?
+   20                 tenant.getDeploymentModel().name() : "unknown");
+   21 
+   22         return span;
+   23     }
+   24 
+   25     /**
+   26      * Adds tenant context to existing span
+   27      */
+   28     public void addTenantContextToSpan(Span span) {
+   29         TenantInfo tenant = TenantContext.getCurrentTenant();
+   30         if (tenant != null) {
+   31             span.tag("tenant.id", tenant.getTenantId());
+   32             span.tag("tenant.name", tenant.getTenantName());
+   33             span.tag("tenant.deployment", tenant.getDeploymentModel().name());
+   34         }
+   35     }
+   36 
+   37     /**
+   38      * Creates tenant-aware metrics
+   39      */
+   40     public Timer.Sample startTenantTimer(MeterRegistry registry, String metricName) {
+   41         TenantInfo tenant = TenantContext.getCurrentTenant();
+   42 
+   43         return Timer.start(registry)
+   44             .tag("tenant.id", tenant != null ? tenant.getTenantId() : "unknown")
+   45             .tag("tenant.deployment", tenant != null ?
+   46                  tenant.getDeploymentModel().name() : "unknown");
+   47     }
+   48 }
+
+  2. Health Monitoring
+
+    1 /**
+    2  * Multi-tenant health monitoring
+    3  * Provides health checks for different deployment models
+    4  */
+    5 @Component
+    6 public class TenantHealthIndicator implements HealthIndicator {
+    7 
+    8     @Autowired
+    9     private TenantRepository tenantRepository;
+   10 
+   11     @Autowired
+   12     private DataSource sharedDataSource;
+   13 
+   14     @Autowired
+   15     private DataSourceFactory dedicatedDataSourceFactory;
+   16 
+   17     @Override
+   18     public Health health() {
+   19         List<TenantInfo> tenants = tenantRepository.findAllActive();
+   20 
+   21         int healthyTenants = 0;
+   22         int totalTenants = tenants.size();
+   23         List<String> issues = new ArrayList<>();
+   24 
+   25         for (TenantInfo tenant : tenants) {
+   26             if (isTenantHealthy(tenant)) {
+   27                 healthyTenants++;
+   28             } else {
+   29                 issues.add("Tenant " + tenant.getTenantId() + " is unhealthy");
+   30             }
+   31         }
+   32 
+   33         Health.Builder builder = Health.up()
+   34             .withDetail("total_tenants", totalTenants)
+   35             .withDetail("healthy_tenants", healthyTenants)
+   36             .withDetail("unhealthy_tenants", totalTenants - healthyTenants);
+   37 
+   38         if (!issues.isEmpty()) {
+   39             builder.withDetail("issues", issues);
+   40         }
+   41 
+   42         if (healthyTenants < totalTenants * 0.95) { // 95% threshold
+   43             builder.status(Status.DOWN);
+   44         } else if (healthyTenants < totalTenants) {
+   45             builder.status(Status.OUT_OF_SERVICE);
+   46         }
+   47 
+   48         return builder.build();
+   49     }
+   50 
+   51     private boolean isTenantHealthy(TenantInfo tenant) {
+   52         try {
+   53             switch(tenant.getDeploymentModel()) {
+   54                 case SHARED_SCHEMA:
+   55                     return isSharedSchemaHealthy(tenant);
+   56                 case SCHEMA_PER_TENANT:
+   57                     return isSchemaPerTenantHealthy(tenant);
+   58                 case DEDICATED_DATABASE:
+   59                     return isDedicatedDatabaseHealthy(tenant);
+   60                 default:
+   61                     return false;
+   62             }
+   63         } catch (Exception e) {
+   64             return false;
+   65         }
+   66     }
+   67 
+   68     private boolean isSharedSchemaHealthy(TenantInfo tenant) {
+   69         // Check if shared database is accessible
+   70         try (Connection conn = sharedDataSource.getConnection()) {
+   71             return conn.isValid(5);
+   72         } catch (SQLException e) {
+   73             return false;
+   74         }
+   75     }
+   76 
+   77     private boolean isSchemaPerTenantHealthy(TenantInfo tenant) {
+   78         // Check if tenant schema is accessible
+   79         try (Connection conn = sharedDataSource.getConnection()) {
+   80             conn.setSchema(tenant.getSchemaName());
+   81             return conn.isValid(5);
+   82         } catch (SQLException e) {
+   83             return false;
+   84         }
+   85     }
+   86 
+   87     private boolean isDedicatedDatabaseHealthy(TenantInfo tenant) {
+   88         // Check if dedicated database is accessible
+   89         try (Connection conn = dedicatedDataSourceFactory.getConnection(
+   90                 tenant.getDatabaseName())) {
+   91             return conn.isValid(5);
+   92         } catch (Exception e) {
+   93             return false;
+   94         }
+   95     }
+   96 }
+
+  Conclusion and Recommendations
+
+  Summary of Key Recommendations
+
+   1. Adopt Hybrid Multi-Tenancy Architecture: Use a single application instance that supports all three deployment models based on tenant requirements.
+
+   2. Implement Tiered Deployment Strategy:
+      - Tier 1 (Enterprise): Dedicated Database for large/custom tenants
+      - Tier 2 (Professional): Schema per Tenant for medium businesses
+      - Tier 3 (Starter): Shared Schema for small tenants
+
+   3. Ensure Strong Security and Compliance:
+      - Implement tenant-aware RBAC and audit logging
+      - Follow GDPR, HIPAA, and other regulatory requirements
+      - Use encryption for sensitive data
+
+   4. Optimize Performance:
+      - Use appropriate connection pooling strategies
+      - Implement tenant-aware caching
+      - Optimize queries for each deployment model
+
+   5. Enable Operational Excellence:
+      - Implement comprehensive monitoring and alerting
+      - Set up automated backup and recovery
+      - Provide tenant onboarding and migration capabilities
+
+  Benefits of This Approach
+
+   1. Flexibility: Serve tenants of all sizes with appropriate resource allocation
+   2. Cost Efficiency: Optimize infrastructure costs through tiered deployment
+   3. Security: Strong data isolation with compliance capabilities
+   4. Scalability: Easy horizontal and vertical scaling options
+   5. Operational Simplicity: Single codebase and deployment process
+   6. Business Agility: Easy tenant migration between tiers
+
+  Implementation Roadmap
+
+   1. Phase 1: Implement core multi-tenancy framework with shared schema approach
+   2. Phase 2: Add schema-per-tenant capabilities
+   3. Phase 3: Implement dedicated database support
+   4. Phase 4: Add advanced features (backup, monitoring, migration)
+   5. Phase 5: Optimize and harden for production
+
+  This comprehensive multi-tenancy strategy provides a robust foundation for enterprise WMS applications while maintaining the flexibility to adapt to evolving
+  business requirements and regulatory landscapes.
