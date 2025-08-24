@@ -1,5 +1,7 @@
 package com.superware.wms.inventory.config;
 
+import com.superware.wms.tenant.context.filter.TenantContextFilter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -23,5 +25,14 @@ public class InventorySecurityConfig {
             .csrf(csrf -> csrf.disable());
         
         return http.build();
+    }
+
+    @Bean
+    public FilterRegistrationBean<TenantContextFilter> tenantContextFilter() {
+        FilterRegistrationBean<TenantContextFilter> registrationBean = new FilterRegistrationBean<>();
+        registrationBean.setFilter(new TenantContextFilter());
+        registrationBean.addUrlPatterns("/*");
+        registrationBean.setOrder(1);
+        return registrationBean;
     }
 }

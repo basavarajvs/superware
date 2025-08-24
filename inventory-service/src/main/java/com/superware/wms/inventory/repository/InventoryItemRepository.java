@@ -13,13 +13,16 @@ import java.util.Optional;
 
 /**
  * Repository for InventoryItem entities with automatic tenant filtering.
+ * Extends TenantAwareRepository for multi-tenancy support.
  */
 @Repository
-public interface InventoryItemRepository extends InventoryRepository<InventoryItem, Integer> {
+public interface InventoryItemRepository extends TenantAwareRepository<InventoryItem, Integer> {
     
     List<InventoryItem> findByProductId(Integer productId);
     
     List<InventoryItem> findByStatus(String status);
     
     List<InventoryItem> findByQuantityOnHandGreaterThan(BigDecimal quantity);
+    
+    Optional<InventoryItem> findById(Integer id);
 }

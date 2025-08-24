@@ -31,7 +31,21 @@ public class TenantAwareRepositoryFactoryBeanSpringBootTest {
 
     @Test
     public void testRepositoryImplementation() {
-        // Verify that the repository is using our custom implementation
-        assertThat(inventoryItemRepository).isInstanceOf(TenantAwareRepository.class);
+        // Verify that the repository implements our TenantAwareRepository interface
+        assertThat(TenantAwareRepository.class.isAssignableFrom(inventoryItemRepository.getClass())).isTrue();
+        
+        // Also verify the actual implementation class
+        System.out.println("Repository class: " + inventoryItemRepository.getClass().getName());
+        System.out.println("Repository interfaces: " + java.util.Arrays.toString(inventoryItemRepository.getClass().getInterfaces()));
+        
+        // Verify that TenantAwareRepository is one of the implemented interfaces
+        boolean implementsTenantAware = false;
+        for (Class<?> interfaceClass : inventoryItemRepository.getClass().getInterfaces()) {
+            if (TenantAwareRepository.class.isAssignableFrom(interfaceClass)) {
+                implementsTenantAware = true;
+                break;
+            }
+        }
+        assertThat(implementsTenantAware).isTrue();
     }
 }

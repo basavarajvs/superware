@@ -26,16 +26,13 @@ public class TenantAwareRepositoryFactoryBean<T extends JpaRepository<S, ID>, S,
 
     private static class TenantAwareRepositoryFactory extends JpaRepositoryFactory {
 
-        private final EntityManager entityManager;
-
         public TenantAwareRepositoryFactory(EntityManager entityManager) {
             super(entityManager);
-            this.entityManager = entityManager;
         }
 
         @Override
         protected Class<?> getRepositoryBaseClass(RepositoryMetadata metadata) {
-            return TenantAwareRepository.class;
+            return TenantAwareRepositoryImpl.class;
         }
     }
 }

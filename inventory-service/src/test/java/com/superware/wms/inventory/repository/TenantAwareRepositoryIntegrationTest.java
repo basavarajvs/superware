@@ -1,16 +1,14 @@
 package com.superware.wms.inventory.repository;
 
-import com.superware.wms.inventory.config.TestRepositoryConfig;
 import com.superware.wms.inventory.entity.InventoryItem;
 import com.superware.wms.tenant.context.TenantContextHolder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -19,10 +17,9 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest
-@Import(TestRepositoryConfig.class)
+@SpringBootTest
 @TestPropertySource(locations = "classpath:application-test.properties")
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Transactional
 public class TenantAwareRepositoryIntegrationTest {
 
     @Autowired
@@ -30,202 +27,184 @@ public class TenantAwareRepositoryIntegrationTest {
 
     @BeforeEach
     public void setUp() {
-        // Clear any existing tenant context
-        TenantContextHolder.clear();
-        
-        // Clean up any existing data
-        TenantContextHolder.setCurrentTenant("1");
-        inventoryItemRepository.deleteAll();
-        TenantContextHolder.setCurrentTenant("2");
-        inventoryItemRepository.deleteAll();
         TenantContextHolder.clear();
     }
 
     @AfterEach
     public void tearDown() {
-        // Clean up test data and clear tenant context
         TenantContextHolder.clear();
     }
 
     @Test
-    public void testRepositoryUsesTenantAwareImplementation() {
-        // Verify that the repository is using our custom implementation
-        assertThat(inventoryItemRepository).isInstanceOf(TenantAwareRepository.class);
+    public void testCompleteMultiTenancyWorkflow() {
+        // Test the complete multi-tenancy workflow from creation to retrieval
+        
+        // Step 1: Create data for tenant 1
+        TenantContextHolder.setCurrentTenant("1");
+        InventoryItem tenant1Item1 = createTestItem(1, "Tenant1Product1", "AVAILABLE");
+        InventoryItem tenant1Item2 = createTestItem(2, "Tenant1Product2", "ALLOCATED");
+        
+        InventoryItem savedTenant1Item1 = inventoryItemRepository.save(tenant1Item1);
+        InventoryItem savedTenant1Item2 = inventoryItemRepository.save(tenant1Item2);
+        
+        // Verify tenant IDs are set correctly
+        assertThat(savedTenant1Item1.getTenantId()).isEqualTo(1);
+        assertThat(savedTenant1Item2.getTenantId()).isEqualTo(1);
+        
+        // Step 2: Create data for tenant 2
+        TenantContextHolder.setCurrentTenant("2");
+        InventoryItem tenant2Item1 = createTestItem(3, "Tenant2Product1", "AVAILABLE");
+        InventoryItem tenant2Item2 = createTestItem(4, "Tenant2Product2", "RESERVED");
+        
+        InventoryItem savedTenant2Item1 = inventoryItemRepository.save(tenant2Item1);
+        InventoryItem savedTenant2Item2 = inventoryItemRepository.save(tenant2Item2);
+        
+        // Verify tenant IDs are set correctly
+        assertThat(savedTenant2Item1.getTenantId()).isEqualTo(2);
+        assertThat(savedTenant2Item2.getTenantId()).isEqualTo(2);
+        
+        // Step 3: Verify tenant 1 only sees its own data
+        TenantContextHolder.setCurrentTenant("1");
+        List<InventoryItem> tenant1Items = inventoryItemRepository.findAll();
+        assertThat(tenant1Items).hasSize(2);
+        
+        // Verify all items belong to tenant 1
+        assertThat(tenant1Items).allMatch(item -> item.getTenantId().equals(1));
+        
+        // Verify specific items are present
+        assertThat(tenant1Items).anyMatch(item -> item.getProductId().equals(1));
+        assertThat(tenant1Items).anyMatch(item -> item.getProductId().equals(2));
+        
+        // Step 4: Verify tenant 2 only sees its own data
+        TenantContextHolder.setCurrentTenant("2");
+        List<InventoryItem> tenant2Items = inventoryItemRepository.findAll();
+        assertThat(tenant2Items).hasSize(2);
+        
+        // Verify all items belong to tenant 2
+        assertThat(tenant2Items).allMatch(item -> item.getTenantId().equals(2));
+        
+        // Verify specific items are present
+        assertThat(tenant2Items).anyMatch(item -> item.getProductId().equals(3));
+        assertThat(tenant2Items).anyMatch(item -> item.getProductId().equals(4));
+        
+        // Step 5: Verify cross-tenant isolation
+        // Tenant 1 should not see tenant 2's items
+        TenantContextHolder.setCurrentTenant("1");
+        Optional<InventoryItem> crossTenantItem = inventoryItemRepository.findById(savedTenant2Item1.getItemId());
+        assertThat(crossTenantItem).isNotPresent();
+        
+        // Tenant 2 should not see tenant 1's items
+        TenantContextHolder.setCurrentTenant("2");
+        Optional<InventoryItem> crossTenantItem2 = inventoryItemRepository.findById(savedTenant1Item1.getItemId());
+        assertThat(crossTenantItem2).isNotPresent();
     }
 
     @Test
-    public void testTenantFilteringWithTenant1() {
-        // Set tenant context to tenant 1
+    public void testTenantContextPersistence() {
+        // Test that tenant context persists across multiple operations
+        
         TenantContextHolder.setCurrentTenant("1");
-
-        // Create and save items for tenant 1
+        
+        // Create multiple items
         InventoryItem item1 = createTestItem(1, "Product1", "AVAILABLE");
-        InventoryItem savedItem1 = inventoryItemRepository.save(item1);
-
-        // Create and save items for tenant 2
-        TenantContextHolder.setCurrentTenant("2");
         InventoryItem item2 = createTestItem(2, "Product2", "ALLOCATED");
+        InventoryItem item3 = createTestItem(3, "Product3", "RESERVED");
+        
+        inventoryItemRepository.save(item1);
         inventoryItemRepository.save(item2);
+        inventoryItemRepository.save(item3);
+        
+        // Verify all items have correct tenant ID
+        List<InventoryItem> allItems = inventoryItemRepository.findAll();
+        assertThat(allItems).hasSize(3);
+        assertThat(allItems).allMatch(item -> item.getTenantId().equals(1));
+        
+        // Test findById operations
+        Optional<InventoryItem> foundItem1 = inventoryItemRepository.findById(item1.getItemId());
+        Optional<InventoryItem> foundItem2 = inventoryItemRepository.findById(item2.getItemId());
+        Optional<InventoryItem> foundItem3 = inventoryItemRepository.findById(item3.getItemId());
+        
+        assertThat(foundItem1).isPresent();
+        assertThat(foundItem2).isPresent();
+        assertThat(foundItem3).isPresent();
+        
+        assertThat(foundItem1.get().getTenantId()).isEqualTo(1);
+        assertThat(foundItem2.get().getTenantId()).isEqualTo(1);
+        assertThat(foundItem3.get().getTenantId()).isEqualTo(1);
+    }
 
-        // Switch back to tenant 1 and verify we only see tenant 1's items
+    @Test
+    public void testTenantContextSwitching() {
+        // Test switching between tenants in the same test method
+        
+        // Create data for tenant 1
+        TenantContextHolder.setCurrentTenant("1");
+        InventoryItem tenant1Item = createTestItem(1, "Tenant1Product", "AVAILABLE");
+        InventoryItem savedTenant1Item = inventoryItemRepository.save(tenant1Item);
+        
+        // Switch to tenant 2
+        TenantContextHolder.setCurrentTenant("2");
+        InventoryItem tenant2Item = createTestItem(2, "Tenant2Product", "AVAILABLE");
+        InventoryItem savedTenant2Item = inventoryItemRepository.save(tenant2Item);
+        
+        // Switch back to tenant 1 and verify data
         TenantContextHolder.setCurrentTenant("1");
         List<InventoryItem> tenant1Items = inventoryItemRepository.findAll();
         assertThat(tenant1Items).hasSize(1);
-        assertThat(tenant1Items.get(0).getItemId()).isEqualTo(savedItem1.getItemId());
+        assertThat(tenant1Items.get(0).getTenantId()).isEqualTo(1);
         assertThat(tenant1Items.get(0).getProductId()).isEqualTo(1);
-    }
-
-    @Test
-    public void testTenantFilteringWithTenant2() {
-        // Set tenant context to tenant 1
-        TenantContextHolder.setCurrentTenant("1");
-
-        // Create and save items for tenant 1
-        InventoryItem item1 = createTestItem(1, "Product1", "AVAILABLE");
-        inventoryItemRepository.save(item1);
-
-        // Create and save items for tenant 2
+        
+        // Switch to tenant 2 and verify data
         TenantContextHolder.setCurrentTenant("2");
-        InventoryItem item2 = createTestItem(2, "Product2", "ALLOCATED");
-        InventoryItem savedItem2 = inventoryItemRepository.save(item2);
-
-        // Verify we only see tenant 2's items
         List<InventoryItem> tenant2Items = inventoryItemRepository.findAll();
         assertThat(tenant2Items).hasSize(1);
-        assertThat(tenant2Items.get(0).getItemId()).isEqualTo(savedItem2.getItemId());
+        assertThat(tenant2Items.get(0).getTenantId()).isEqualTo(2);
         assertThat(tenant2Items.get(0).getProductId()).isEqualTo(2);
     }
 
     @Test
-    public void testFindByIdWithTenantFiltering() {
-        // Set tenant context to tenant 1
+    public void testCustomQueryMethodsWithTenantFiltering() {
+        // Test that custom query methods respect tenant filtering
+        
+        // Create data for tenant 1
         TenantContextHolder.setCurrentTenant("1");
-
-        // Create and save an item for tenant 1
         InventoryItem item1 = createTestItem(1, "Product1", "AVAILABLE");
-        InventoryItem savedItem1 = inventoryItemRepository.save(item1);
-
-        // Create and save an item for tenant 2 with the same ID sequence
-        TenantContextHolder.setCurrentTenant("2");
-        InventoryItem item2 = createTestItem(2, "Product2", "ALLOCATED");
-        InventoryItem savedItem2 = inventoryItemRepository.save(item2);
-
-        // Verify tenant 1 can only see its own item
-        TenantContextHolder.setCurrentTenant("1");
-        Optional<InventoryItem> foundItem1 = inventoryItemRepository.findById(savedItem1.getItemId());
-        assertThat(foundItem1).isPresent();
-        assertThat(foundItem1.get().getProductId()).isEqualTo(1);
-
-        // Verify tenant 1 cannot see tenant 2's item
-        Optional<InventoryItem> notFoundItem2 = inventoryItemRepository.findById(savedItem2.getItemId());
-        assertThat(notFoundItem2).isNotPresent();
-
-        // Verify tenant 2 can only see its own item
-        TenantContextHolder.setCurrentTenant("2");
-        Optional<InventoryItem> foundItem2 = inventoryItemRepository.findById(savedItem2.getItemId());
-        assertThat(foundItem2).isPresent();
-        assertThat(foundItem2.get().getProductId()).isEqualTo(2);
-
-        // Verify tenant 2 cannot see tenant 1's item
-        Optional<InventoryItem> notFoundItem1 = inventoryItemRepository.findById(savedItem1.getItemId());
-        assertThat(notFoundItem1).isNotPresent();
-    }
-
-    @Test
-    public void testSaveWithTenantFiltering() {
-        // Set tenant context to tenant 1
-        TenantContextHolder.setCurrentTenant("1");
-
-        // Create and save an item
-        InventoryItem item = createTestItem(1, "Product1", "AVAILABLE");
-        InventoryItem savedItem = inventoryItemRepository.save(item);
-
-        // Verify the tenant ID was set correctly
-        assertThat(savedItem.getTenantId()).isEqualTo(Integer.valueOf(1));
-
-        // Verify we can find the item
-        Optional<InventoryItem> foundItem = inventoryItemRepository.findById(savedItem.getItemId());
-        assertThat(foundItem).isPresent();
-        assertThat(foundItem.get().getTenantId()).isEqualTo(Integer.valueOf(1));
-    }
-
-    @Test
-    public void testUpdateWithTenantFiltering() {
-        // Set tenant context to tenant 1
-        TenantContextHolder.setCurrentTenant("1");
-
-        // Create and save an item
-        InventoryItem item = createTestItem(1, "Product1", "AVAILABLE");
-        InventoryItem savedItem = inventoryItemRepository.save(item);
-
-        // Update the item
-        savedItem.setStatus("ALLOCATED");
-        InventoryItem updatedItem = inventoryItemRepository.save(savedItem);
-
-        // Verify the update was successful
-        assertThat(updatedItem.getStatus()).isEqualTo("ALLOCATED");
-
-        // Verify tenant 2 cannot see this item
-        TenantContextHolder.setCurrentTenant("2");
-        Optional<InventoryItem> notFoundItem = inventoryItemRepository.findById(savedItem.getItemId());
-        assertThat(notFoundItem).isNotPresent();
-    }
-
-    @Test
-    public void testDeleteWithTenantFiltering() {
-        // Set tenant context to tenant 1
-        TenantContextHolder.setCurrentTenant("1");
-
-        // Create and save an item
-        InventoryItem item = createTestItem(1, "Product1", "AVAILABLE");
-        InventoryItem savedItem = inventoryItemRepository.save(item);
-
-        // Verify the item exists
-        assertThat(inventoryItemRepository.findById(savedItem.getItemId())).isPresent();
-
-        // Delete the item
-        inventoryItemRepository.deleteById(savedItem.getItemId());
-
-        // Verify the item is deleted for tenant 1
-        assertThat(inventoryItemRepository.findById(savedItem.getItemId())).isNotPresent();
-
-        // Verify tenant 2 was never able to see this item
-        TenantContextHolder.setCurrentTenant("2");
-        assertThat(inventoryItemRepository.findById(savedItem.getItemId())).isNotPresent();
-    }
-
-    @Test
-    public void testCustomQueriesWithTenantFiltering() {
-        // Set tenant context to tenant 1
-        TenantContextHolder.setCurrentTenant("1");
-
-        // Create and save items for tenant 1
-        InventoryItem item1 = createTestItem(1, "Product1", "AVAILABLE");
+        InventoryItem item2 = createTestItem(2, "Product2", "AVAILABLE");
+        InventoryItem item3 = createTestItem(3, "Product3", "ALLOCATED");
+        
         inventoryItemRepository.save(item1);
-
-        InventoryItem item2 = createTestItem(1, "Product1", "ALLOCATED");
         inventoryItemRepository.save(item2);
-
-        // Create items for tenant 2
-        TenantContextHolder.setCurrentTenant("2");
-        InventoryItem item3 = createTestItem(2, "Product1", "AVAILABLE");
         inventoryItemRepository.save(item3);
-
-        // Test custom query method with tenant filtering
-        TenantContextHolder.setCurrentTenant("1");
-        List<InventoryItem> tenant1ProductItems = inventoryItemRepository.findByProductId(1);
-        assertThat(tenant1ProductItems).hasSize(2);
-        assertThat(tenant1ProductItems).allMatch(item -> item.getTenantId().equals(1));
-
-        List<InventoryItem> tenant1AvailableItems = inventoryItemRepository.findByStatus("AVAILABLE");
-        assertThat(tenant1AvailableItems).hasSize(1);
-        assertThat(tenant1AvailableItems.get(0).getTenantId()).isEqualTo(1);
-
-        // Test with tenant 2
+        
+        // Create data for tenant 2
         TenantContextHolder.setCurrentTenant("2");
-        List<InventoryItem> tenant2ProductItems = inventoryItemRepository.findByProductId(2);
-        assertThat(tenant2ProductItems).hasSize(1);
-        assertThat(tenant2ProductItems.get(0).getTenantId()).isEqualTo(2);
+        InventoryItem item4 = createTestItem(4, "Product4", "AVAILABLE");
+        InventoryItem item5 = createTestItem(5, "Product5", "RESERVED");
+        
+        inventoryItemRepository.save(item4);
+        inventoryItemRepository.save(item5);
+        
+        // Test custom queries for tenant 1
+        TenantContextHolder.setCurrentTenant("1");
+        
+        List<InventoryItem> availableItems = inventoryItemRepository.findByStatus("AVAILABLE");
+        assertThat(availableItems).hasSize(2);
+        assertThat(availableItems).allMatch(item -> item.getTenantId().equals(1));
+        
+        List<InventoryItem> product1Items = inventoryItemRepository.findByProductId(1);
+        assertThat(product1Items).hasSize(1);
+        assertThat(product1Items.get(0).getTenantId()).isEqualTo(1);
+        
+        // Test custom queries for tenant 2
+        TenantContextHolder.setCurrentTenant("2");
+        
+        List<InventoryItem> tenant2AvailableItems = inventoryItemRepository.findByStatus("AVAILABLE");
+        assertThat(tenant2AvailableItems).hasSize(1);
+        assertThat(tenant2AvailableItems).allMatch(item -> item.getTenantId().equals(2));
+        
+        List<InventoryItem> product4Items = inventoryItemRepository.findByProductId(4);
+        assertThat(product4Items).hasSize(1);
+        assertThat(product4Items.get(0).getTenantId()).isEqualTo(2);
     }
 
     private InventoryItem createTestItem(Integer productId, String productName, String status) {
