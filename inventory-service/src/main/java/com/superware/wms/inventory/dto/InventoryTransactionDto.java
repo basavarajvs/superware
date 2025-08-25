@@ -1,78 +1,75 @@
-package com.superware.wms.inventory.entity;
+package com.superware.wms.inventory.dto;
 
-import org.hibernate.annotations.Filter;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-/**
- * Inventory transactions entity.
- */
-@Entity
-@Table(name = "inventory_transactions")
-@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
-public class InventoryTransaction {
+@Schema(description = "Inventory transaction data transfer object")
+public class InventoryTransactionDto {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "transaction_id")
+    @Schema(description = "Unique identifier of the inventory transaction", example = "1")
     private Integer transactionId;
 
-    @Column(name = "tenant_id")
+    @Schema(description = "Identifier of the tenant", example = "1")
     private Integer tenantId;
 
-    @Column(name = "transaction_type")
+    @NotBlank(message = "Transaction type is required")
+    @Schema(description = "Type of transaction (e.g., RECEIPT, ISSUE, TRANSFER)", example = "RECEIPT")
     private String transactionType;
 
-    @Column(name = "transaction_date")
+    @Schema(description = "Date of the transaction")
     private LocalDateTime transactionDate;
 
-    @Column(name = "status")
+    @NotBlank(message = "Status is required")
+    @Schema(description = "Status of the transaction (e.g., PENDING, COMPLETED, CANCELLED)", example = "COMPLETED")
     private String status;
 
-    @Column(name = "reference_number")
+    @Schema(description = "Reference number", example = "REF123456")
     private String referenceNumber;
 
-    @Column(name = "reference_type")
+    @Schema(description = "Reference type", example = "ORDER")
     private String referenceType;
 
-    @Column(name = "reference_id")
+    @Schema(description = "Reference ID", example = "100")
     private Integer referenceId;
 
-    @Column(name = "source_type")
+    @Schema(description = "Source type", example = "SUPPLIER")
     private String sourceType;
 
-    @Column(name = "source_id")
+    @Schema(description = "Source ID", example = "50")
     private Integer sourceId;
 
-    @Column(name = "destination_type")
+    @Schema(description = "Destination type", example = "WAREHOUSE")
     private String destinationType;
 
-    @Column(name = "destination_id")
+    @Schema(description = "Destination ID", example = "3")
     private Integer destinationId;
 
-    @Column(name = "notes")
+    @Schema(description = "Notes about the transaction")
     private String notes;
 
-    @Column(name = "created_at")
+    @Schema(description = "Creation timestamp")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Schema(description = "Last update timestamp")
     private LocalDateTime updatedAt;
 
-    @Column(name = "created_by")
+    @Schema(description = "ID of the user who created the transaction", example = "1")
     private Integer createdBy;
 
-    @Column(name = "updated_by")
+    @Schema(description = "ID of the user who last updated the transaction", example = "1")
     private Integer updatedBy;
 
-    @Column(name = "is_deleted")
+    @Schema(description = "Whether the transaction is deleted", example = "false")
     private Boolean isDeleted;
 
     // Constructors
-    public InventoryTransaction() {}
+    public InventoryTransactionDto() {
+    }
 
-    // Getters and setters
+    // Getters and Setters
     public Integer getTransactionId() {
         return transactionId;
     }
@@ -169,26 +166,6 @@ public class InventoryTransaction {
         this.destinationId = destinationId;
     }
 
-    public Integer getFromLocationId() {
-        return sourceId;
-    }
-
-    public void setFromLocationId(Integer fromLocationId) {
-        this.sourceId = fromLocationId;
-    }
-
-    public Integer getToLocationId() {
-        return destinationId;
-    }
-
-    public void setToLocationId(Integer toLocationId) {
-        this.destinationId = toLocationId;
-    }
-
-    public Integer getId() {
-        return transactionId;
-    }
-
     public String getNotes() {
         return notes;
     }
@@ -242,7 +219,7 @@ public class InventoryTransaction {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        InventoryTransaction that = (InventoryTransaction) o;
+        InventoryTransactionDto that = (InventoryTransactionDto) o;
 
         return transactionId != null ? transactionId.equals(that.transactionId) : that.transactionId == null;
     }
@@ -254,7 +231,7 @@ public class InventoryTransaction {
 
     @Override
     public String toString() {
-        return "InventoryTransaction{" +
+        return "InventoryTransactionDto{" +
                 "transactionId=" + transactionId +
                 ", tenantId=" + tenantId +
                 ", transactionType='" + transactionType + '\'' +

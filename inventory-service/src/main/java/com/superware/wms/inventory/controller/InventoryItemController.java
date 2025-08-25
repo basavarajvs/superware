@@ -1,5 +1,6 @@
 package com.superware.wms.inventory.controller;
 
+import com.superware.wms.inventory.dto.InventoryItemDto;
 import com.superware.wms.inventory.entity.InventoryItem;
 import com.superware.wms.inventory.service.InventoryItemService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,6 +22,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import jakarta.validation.Valid;
 import java.math.BigDecimal;
 import java.net.URI;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * REST controller for managing inventory items.
@@ -56,10 +59,12 @@ public class InventoryItemController {
         ),
         @ApiResponse(responseCode = "401", description = "Unauthorized")
     })
-    public ResponseEntity<Page<InventoryItem>> getAllItems(
+    public ResponseEntity<Page<InventoryItemDto>> getAllItems(
             @Parameter(description = "Pagination and sorting parameters")
             @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(inventoryItemService.getAllItems(pageable));
+        Page<InventoryItem> items = inventoryItemService.getAllItems(pageable);
+        Page<InventoryItemDto> itemDtos = items.map(this::convertToDto);
+        return ResponseEntity.ok(itemDtos);
     }
 
     /**
@@ -77,21 +82,22 @@ public class InventoryItemController {
         @ApiResponse(
             responseCode = "200",
             description = "Successfully retrieved the inventory item",
-            content = @Content(schema = @Schema(implementation = InventoryItem.class))
+            content = @Content(schema = @Schema(implementation = InventoryItemDto.class))
         ),
         @ApiResponse(responseCode = "404", description = "Inventory item not found"),
         @ApiResponse(responseCode = "401", description = "Unauthorized")
     })
-    public ResponseEntity<InventoryItem> getItemById(
+    public ResponseEntity<InventoryItemDto> getItemById(
             @Parameter(description = "ID of the inventory item to be retrieved", required = true)
             @PathVariable Integer id) {
-        return ResponseEntity.ok(inventoryItemService.getItemById(id));
+        InventoryItem item = inventoryItemService.getItemById(id);
+        return ResponseEntity.ok(convertToDto(item));
     }
 
     /**
      * POST /api/v1/inventory/items : Create a new inventory item
      *
-     * @param item The inventory item to create
+     * @param itemDto The inventory item to create
      * @return The created inventory item
      */
     @PostMapping
@@ -103,14 +109,15 @@ public class InventoryItemController {
         @ApiResponse(
             responseCode = "201",
             description = "Inventory item created successfully",
-            content = @Content(schema = @Schema(implementation = InventoryItem.class))
+            content = @Content(schema = @Schema(implementation = InventoryItemDto.class))
         ),
         @ApiResponse(responseCode = "400", description = "Invalid input"),
         @ApiResponse(responseCode = "401", description = "Unauthorized")
     })
-    public ResponseEntity<InventoryItem> createItem(
+    public ResponseEntity<InventoryItemDto> createItem(
             @Parameter(description = "Inventory item to be created", required = true)
-            @Valid @RequestBody InventoryItem item) {
+            @Valid @RequestBody InventoryItemDto itemDto) {
+        InventoryItem item = convertToEntity(itemDto);
         InventoryItem createdItem = inventoryItemService.createItem(item);
         
         URI location = ServletUriComponentsBuilder
@@ -119,14 +126,14 @@ public class InventoryItemController {
             .buildAndExpand(createdItem.getItemId())
             .toUri();
             
-        return ResponseEntity.created(location).body(createdItem);
+        return ResponseEntity.created(location).body(convertToDto(createdItem));
     }
 
     /**
      * PUT /api/v1/inventory/items/{id} : Update an existing inventory item
      *
      * @param id The ID of the inventory item to update
-     * @param item The updated inventory item data
+     * @param itemDto The updated inventory item data
      * @return The updated inventory item
      */
     @PutMapping("/{id}")
@@ -138,18 +145,20 @@ public class InventoryItemController {
         @ApiResponse(
             responseCode = "200",
             description = "Inventory item updated successfully",
-            content = @Content(schema = @Schema(implementation = InventoryItem.class))
+            content = @Content(schema = @Schema(implementation = InventoryItemDto.class))
         ),
         @ApiResponse(responseCode = "400", description = "Invalid input"),
         @ApiResponse(responseCode = "404", description = "Inventory item not found"),
         @ApiResponse(responseCode = "401", description = "Unauthorized")
     })
-    public ResponseEntity<InventoryItem> updateItem(
+    public ResponseEntity<InventoryItemDto> updateItem(
             @Parameter(description = "ID of the inventory item to be updated", required = true)
             @PathVariable Integer id,
             @Parameter(description = "Updated inventory item data", required = true)
-            @Valid @RequestBody InventoryItem item) {
-        return ResponseEntity.ok(inventoryItemService.updateItem(id, item));
+            @Valid @RequestBody InventoryItemDto itemDto) {
+        InventoryItem item = convertToEntity(itemDto);
+        InventoryItem updatedItem = inventoryItemService.updateItem(id, item);
+        return ResponseEntity.ok(convertToDto(updatedItem));
     }
 
     /**
@@ -190,14 +199,18 @@ public class InventoryItemController {
         @ApiResponse(
             responseCode = "200",
             description = "Successfully retrieved inventory items",
-            content = @Content(schema = @Schema(implementation = InventoryItem.class, type = "array"))
+            content = @Content(schema = @Schema(implementation = InventoryItemDto.class, type = "array"))
         ),
         @ApiResponse(responseCode = "401", description = "Unauthorized")
     })
-    public ResponseEntity<Iterable<InventoryItem>> getItemsByProductId(
+    public ResponseEntity<List<InventoryItemDto>> getItemsByProductId(
             @Parameter(description = "Product ID to filter inventory items", required = true)
             @PathVariable Integer productId) {
-        return ResponseEntity.ok(inventoryItemService.getItemsByProductId(productId));
+        List<InventoryItem> items = inventoryItemService.getItemsByProductId(productId);
+        List<InventoryItemDto> itemDtos = items.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(itemDtos);
     }
 
     /**
@@ -215,16 +228,20 @@ public class InventoryItemController {
         @ApiResponse(
             responseCode = "200",
             description = "Successfully retrieved inventory items",
-            content = @Content(schema = @Schema(implementation = InventoryItem.class, type = "array"))
+            content = @Content(schema = @Schema(implementation = InventoryItemDto.class, type = "array"))
         ),
         @ApiResponse(responseCode = "400", description = "Invalid status value"),
         @ApiResponse(responseCode = "401", description = "Unauthorized")
     })
-    public ResponseEntity<Iterable<InventoryItem>> getItemsByStatus(
+    public ResponseEntity<List<InventoryItemDto>> getItemsByStatus(
             @Parameter(description = "Status to filter inventory items (e.g., AVAILABLE, ALLOCATED, QUARANTINED)", 
                       required = true)
             @PathVariable String status) {
-        return ResponseEntity.ok(inventoryItemService.getItemsByStatus(status));
+        List<InventoryItem> items = inventoryItemService.getItemsByStatus(status);
+        List<InventoryItemDto> itemDtos = items.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(itemDtos);
     }
 
     /**
@@ -242,14 +259,83 @@ public class InventoryItemController {
         @ApiResponse(
             responseCode = "200",
             description = "Successfully retrieved inventory items",
-            content = @Content(schema = @Schema(implementation = InventoryItem.class, type = "array"))
+            content = @Content(schema = @Schema(implementation = InventoryItemDto.class, type = "array"))
         ),
         @ApiResponse(responseCode = "400", description = "Invalid quantity value"),
         @ApiResponse(responseCode = "401", description = "Unauthorized")
     })
-    public ResponseEntity<Iterable<InventoryItem>> getItemsByQuantityOnHandGreaterThan(
+    public ResponseEntity<List<InventoryItemDto>> getItemsByQuantityOnHandGreaterThan(
             @Parameter(description = "Minimum quantity threshold", required = true)
             @PathVariable BigDecimal quantity) {
-        return ResponseEntity.ok(inventoryItemService.getItemsByQuantityOnHandGreaterThan(quantity));
+        List<InventoryItem> items = inventoryItemService.getItemsByQuantityOnHandGreaterThan(quantity);
+        List<InventoryItemDto> itemDtos = items.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(itemDtos);
+    }
+
+    // Helper methods for conversion between Entity and DTO
+    private InventoryItemDto convertToDto(InventoryItem item) {
+        InventoryItemDto dto = new InventoryItemDto();
+        dto.setItemId(item.getItemId());
+        dto.setTenantId(item.getTenantId());
+        dto.setProductId(item.getProductId());
+        dto.setVariantId(item.getVariantId());
+        dto.setLotNumber(item.getLotNumber());
+        dto.setSerialNumber(item.getSerialNumber());
+        dto.setStatus(item.getStatus());
+        dto.setCondition(item.getCondition());
+        dto.setQuantityOnHand(item.getQuantityOnHand());
+        dto.setQuantityAllocated(item.getQuantityAllocated());
+        dto.setQuantityAvailable(item.getQuantityAvailable());
+        dto.setUnitOfMeasure(item.getUnitOfMeasure());
+        dto.setLocationId(item.getLocationId());
+        dto.setFacilityId(item.getFacilityId());
+        dto.setExpiryDate(item.getExpiryDate());
+        dto.setManufactureDate(item.getManufactureDate());
+        dto.setReceivedDate(item.getReceivedDate());
+        dto.setLastCountedDate(item.getLastCountedDate());
+        dto.setUnitCost(item.getUnitCost());
+        dto.setTotalCost(item.getTotalCost());
+        dto.setNotes(item.getNotes());
+        dto.setIsActive(item.getIsActive());
+        dto.setCreatedAt(item.getCreatedAt());
+        dto.setUpdatedAt(item.getUpdatedAt());
+        dto.setCreatedBy(item.getCreatedBy());
+        dto.setUpdatedBy(item.getUpdatedBy());
+        dto.setIsDeleted(item.getIsDeleted());
+        return dto;
+    }
+
+    private InventoryItem convertToEntity(InventoryItemDto dto) {
+        InventoryItem item = new InventoryItem();
+        item.setItemId(dto.getItemId());
+        item.setTenantId(dto.getTenantId());
+        item.setProductId(dto.getProductId());
+        item.setVariantId(dto.getVariantId());
+        item.setLotNumber(dto.getLotNumber());
+        item.setSerialNumber(dto.getSerialNumber());
+        item.setStatus(dto.getStatus());
+        item.setCondition(dto.getCondition());
+        item.setQuantityOnHand(dto.getQuantityOnHand());
+        item.setQuantityAllocated(dto.getQuantityAllocated());
+        item.setQuantityAvailable(dto.getQuantityAvailable());
+        item.setUnitOfMeasure(dto.getUnitOfMeasure());
+        item.setLocationId(dto.getLocationId());
+        item.setFacilityId(dto.getFacilityId());
+        item.setExpiryDate(dto.getExpiryDate());
+        item.setManufactureDate(dto.getManufactureDate());
+        item.setReceivedDate(dto.getReceivedDate());
+        item.setLastCountedDate(dto.getLastCountedDate());
+        item.setUnitCost(dto.getUnitCost());
+        item.setTotalCost(dto.getTotalCost());
+        item.setNotes(dto.getNotes());
+        item.setIsActive(dto.getIsActive());
+        item.setCreatedAt(dto.getCreatedAt());
+        item.setUpdatedAt(dto.getUpdatedAt());
+        item.setCreatedBy(dto.getCreatedBy());
+        item.setUpdatedBy(dto.getUpdatedBy());
+        item.setIsDeleted(dto.getIsDeleted());
+        return item;
     }
 }

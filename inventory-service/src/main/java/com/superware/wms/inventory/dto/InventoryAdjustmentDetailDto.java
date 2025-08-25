@@ -1,79 +1,77 @@
-package com.superware.wms.inventory.entity;
+package com.superware.wms.inventory.dto;
 
-import org.hibernate.annotations.Filter;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * Inventory adjustment details entity.
- */
-@Entity
-@Table(name = "inventory_adjustment_details")
-@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
-public class InventoryAdjustmentDetail {
+@Schema(description = "Inventory adjustment detail data transfer object")
+public class InventoryAdjustmentDetailDto {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "adjustment_detail_id")
+    @Schema(description = "Unique identifier of the inventory adjustment detail", example = "1")
     private Integer adjustmentDetailId;
 
-    @Column(name = "adjustment_id")
+    @NotNull(message = "Adjustment ID is required")
+    @Schema(description = "Identifier of the adjustment", example = "1")
     private Integer adjustmentId;
 
-    @Column(name = "item_id")
+    @NotNull(message = "Item ID is required")
+    @Schema(description = "Identifier of the inventory item", example = "1")
     private Integer itemId;
 
-    @Column(name = "location_id")
+    @Schema(description = "Identifier of the location", example = "5")
     private Integer locationId;
 
-    @Column(name = "lot_number")
+    @Schema(description = "Lot number", example = "LOT123456")
     private String lotNumber;
 
-    @Column(name = "serial_number")
+    @Schema(description = "Serial number", example = "SN789012")
     private String serialNumber;
 
-    @Column(name = "quantity_before")
+    @Schema(description = "Quantity before adjustment", example = "100.00")
     private BigDecimal quantityBefore;
 
-    @Column(name = "quantity_after")
+    @Schema(description = "Quantity after adjustment", example = "125.00")
     private BigDecimal quantityAfter;
 
-    @Column(name = "quantity_adjusted")
+    @NotNull(message = "Quantity adjusted is required")
+    @Schema(description = "Quantity adjusted", example = "25.00")
     private BigDecimal quantityAdjusted;
 
-    @Column(name = "unit_of_measure")
+    @Schema(description = "Unit of measure", example = "EA")
     private String unitOfMeasure;
 
-    @Column(name = "unit_cost")
+    @Schema(description = "Unit cost", example = "10.50")
     private BigDecimal unitCost;
 
-    @Column(name = "total_cost")
+    @Schema(description = "Total cost", example = "262.50")
     private BigDecimal totalCost;
 
-    @Column(name = "notes")
+    @Schema(description = "Notes about the adjustment detail")
     private String notes;
 
-    @Column(name = "created_at")
+    @Schema(description = "Creation timestamp")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Schema(description = "Last update timestamp")
     private LocalDateTime updatedAt;
 
-    @Column(name = "created_by")
+    @Schema(description = "ID of the user who created the adjustment detail", example = "1")
     private Integer createdBy;
 
-    @Column(name = "updated_by")
+    @Schema(description = "ID of the user who last updated the adjustment detail", example = "1")
     private Integer updatedBy;
 
-    @Column(name = "is_deleted")
+    @Schema(description = "Whether the adjustment detail is deleted", example = "false")
     private Boolean isDeleted;
 
     // Constructors
-    public InventoryAdjustmentDetail() {}
+    public InventoryAdjustmentDetailDto() {
+    }
 
-    // Getters and setters
+    // Getters and Setters
     public Integer getAdjustmentDetailId() {
         return adjustmentDetailId;
     }
@@ -144,30 +142,6 @@ public class InventoryAdjustmentDetail {
 
     public void setQuantityAdjusted(BigDecimal quantityAdjusted) {
         this.quantityAdjusted = quantityAdjusted;
-    }
-
-    public BigDecimal getPreviousQuantity() {
-        return quantityBefore;
-    }
-
-    public void setPreviousQuantity(BigDecimal previousQuantity) {
-        this.quantityBefore = previousQuantity;
-    }
-
-    public BigDecimal getNewQuantity() {
-        return quantityAfter;
-    }
-
-    public void setNewQuantity(BigDecimal newQuantity) {
-        this.quantityAfter = newQuantity;
-    }
-
-    public String getReason() {
-        return notes; // Using notes field to store reason
-    }
-
-    public void setReason(String reason) {
-        this.notes = reason; // Using notes field to store reason
     }
 
     public String getUnitOfMeasure() {
@@ -247,7 +221,7 @@ public class InventoryAdjustmentDetail {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        InventoryAdjustmentDetail that = (InventoryAdjustmentDetail) o;
+        InventoryAdjustmentDetailDto that = (InventoryAdjustmentDetailDto) o;
 
         return adjustmentDetailId != null ? adjustmentDetailId.equals(that.adjustmentDetailId) : that.adjustmentDetailId == null;
     }
@@ -259,7 +233,7 @@ public class InventoryAdjustmentDetail {
 
     @Override
     public String toString() {
-        return "InventoryAdjustmentDetail{" +
+        return "InventoryAdjustmentDetailDto{" +
                 "adjustmentDetailId=" + adjustmentDetailId +
                 ", adjustmentId=" + adjustmentId +
                 ", itemId=" + itemId +

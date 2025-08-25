@@ -1,69 +1,66 @@
-package com.superware.wms.inventory.entity;
+package com.superware.wms.inventory.dto;
 
-import org.hibernate.annotations.Filter;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 
-import org.hibernate.annotations.Filter;
-
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * Inventory reservation details entity.
- */
-@Entity
-@Table(name = "inventory_reservation_details")
-@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
-public class InventoryReservationDetail {
+@Schema(description = "Inventory reservation detail data transfer object")
+public class InventoryReservationDetailDto {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "reservation_detail_id")
+    @Schema(description = "Unique identifier of the inventory reservation detail", example = "1")
     private Integer reservationDetailId;
 
-    @Column(name = "reservation_id")
+    @NotNull(message = "Reservation ID is required")
+    @Schema(description = "Identifier of the reservation", example = "1")
     private Integer reservationId;
 
-    @Column(name = "item_id")
+    @NotNull(message = "Item ID is required")
+    @Schema(description = "Identifier of the inventory item", example = "1")
     private Integer itemId;
 
-    @Column(name = "quantity_requested")
+    @NotNull(message = "Quantity requested is required")
+    @PositiveOrZero(message = "Quantity requested must be zero or positive")
+    @Schema(description = "Quantity requested", example = "25.00")
     private BigDecimal quantityRequested;
 
-    @Column(name = "quantity_allocated")
+    @Schema(description = "Quantity allocated", example = "20.00")
     private BigDecimal quantityAllocated;
 
-    @Column(name = "quantity_fulfilled")
+    @Schema(description = "Quantity fulfilled", example = "15.00")
     private BigDecimal quantityFulfilled;
 
-    @Column(name = "unit_of_measure")
+    @Schema(description = "Unit of measure", example = "EA")
     private String unitOfMeasure;
 
-    @Column(name = "lot_number")
+    @Schema(description = "Lot number", example = "LOT123456")
     private String lotNumber;
 
-    @Column(name = "notes")
+    @Schema(description = "Notes about the reservation detail")
     private String notes;
 
-    @Column(name = "created_at")
+    @Schema(description = "Creation timestamp")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Schema(description = "Last update timestamp")
     private LocalDateTime updatedAt;
 
-    @Column(name = "created_by")
+    @Schema(description = "ID of the user who created the reservation detail", example = "1")
     private Integer createdBy;
 
-    @Column(name = "updated_by")
+    @Schema(description = "ID of the user who last updated the reservation detail", example = "1")
     private Integer updatedBy;
 
-    @Column(name = "is_deleted")
+    @Schema(description = "Whether the reservation detail is deleted", example = "false")
     private Boolean isDeleted;
 
     // Constructors
-    public InventoryReservationDetail() {}
+    public InventoryReservationDetailDto() {
+    }
 
-    // Getters and setters
+    // Getters and Setters
     public Integer getReservationDetailId() {
         return reservationDetailId;
     }
@@ -112,12 +109,12 @@ public class InventoryReservationDetail {
         this.quantityFulfilled = quantityFulfilled;
     }
 
-    public BigDecimal getReservedQuantity() {
-        return quantityRequested;
+    public String getUnitOfMeasure() {
+        return unitOfMeasure;
     }
 
-    public void setReservedQuantity(BigDecimal reservedQuantity) {
-        this.quantityRequested = reservedQuantity;
+    public void setUnitOfMeasure(String unitOfMeasure) {
+        this.unitOfMeasure = unitOfMeasure;
     }
 
     public String getLotNumber() {
@@ -126,14 +123,6 @@ public class InventoryReservationDetail {
 
     public void setLotNumber(String lotNumber) {
         this.lotNumber = lotNumber;
-    }
-
-    public String getUnitOfMeasure() {
-        return unitOfMeasure;
-    }
-
-    public void setUnitOfMeasure(String unitOfMeasure) {
-        this.unitOfMeasure = unitOfMeasure;
     }
 
     public String getNotes() {
@@ -189,7 +178,7 @@ public class InventoryReservationDetail {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        InventoryReservationDetail that = (InventoryReservationDetail) o;
+        InventoryReservationDetailDto that = (InventoryReservationDetailDto) o;
 
         return reservationDetailId != null ? reservationDetailId.equals(that.reservationDetailId) : that.reservationDetailId == null;
     }
@@ -201,7 +190,7 @@ public class InventoryReservationDetail {
 
     @Override
     public String toString() {
-        return "InventoryReservationDetail{" +
+        return "InventoryReservationDetailDto{" +
                 "reservationDetailId=" + reservationDetailId +
                 ", reservationId=" + reservationId +
                 ", itemId=" + itemId +

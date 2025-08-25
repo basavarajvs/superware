@@ -1,70 +1,68 @@
-package com.superware.wms.inventory.entity;
+package com.superware.wms.inventory.dto;
 
-import org.hibernate.annotations.Filter;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * Inventory count details entity.
- */
-@Entity
-@Table(name = "inventory_count_details")
-@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
-public class InventoryCountDetail {
+@Schema(description = "Inventory count detail data transfer object")
+public class InventoryCountDetailDto {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "count_detail_id")
+    @Schema(description = "Unique identifier of the inventory count detail", example = "1")
     private Integer countDetailId;
 
-    @Column(name = "count_id")
+    @NotNull(message = "Count ID is required")
+    @Schema(description = "Identifier of the count", example = "1")
     private Integer countId;
 
-    @Column(name = "item_id")
+    @NotNull(message = "Item ID is required")
+    @Schema(description = "Identifier of the inventory item", example = "1")
     private Integer itemId;
 
-    @Column(name = "expected_quantity")
+    @Schema(description = "Expected quantity", example = "100.00")
     private BigDecimal expectedQuantity;
 
-    @Column(name = "counted_quantity")
+    @NotNull(message = "Counted quantity is required")
+    @Schema(description = "Counted quantity", example = "95.00")
     private BigDecimal countedQuantity;
 
-    @Column(name = "variance")
+    @Schema(description = "Variance", example = "-5.00")
     private BigDecimal variance;
 
-    @Column(name = "unit_of_measure")
+    @Schema(description = "Unit of measure", example = "EA")
     private String unitOfMeasure;
 
-    @Column(name = "lot_number")
+    @Schema(description = "Lot number", example = "LOT123456")
     private String lotNumber;
 
-    @Column(name = "notes")
+    @Schema(description = "Notes about the count detail")
     private String notes;
 
-    @Column(name = "is_recounted")
+    @Schema(description = "Whether the item is recounted", example = "false")
     private Boolean isRecounted;
 
-    @Column(name = "created_at")
+    @Schema(description = "Creation timestamp")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Schema(description = "Last update timestamp")
     private LocalDateTime updatedAt;
 
-    @Column(name = "created_by")
+    @Schema(description = "ID of the user who created the count detail", example = "1")
     private Integer createdBy;
 
-    @Column(name = "updated_by")
+    @Schema(description = "ID of the user who last updated the count detail", example = "1")
     private Integer updatedBy;
 
-    @Column(name = "is_deleted")
+    @Schema(description = "Whether the count detail is deleted", example = "false")
     private Boolean isDeleted;
 
     // Constructors
-    public InventoryCountDetail() {}
+    public InventoryCountDetailDto() {
+    }
 
-    // Getters and setters
+    // Getters and Setters
     public Integer getCountDetailId() {
         return countDetailId;
     }
@@ -113,12 +111,12 @@ public class InventoryCountDetail {
         this.variance = variance;
     }
 
-    public BigDecimal getSystemQuantity() {
-        return expectedQuantity;
+    public String getUnitOfMeasure() {
+        return unitOfMeasure;
     }
 
-    public void setSystemQuantity(BigDecimal systemQuantity) {
-        this.expectedQuantity = systemQuantity;
+    public void setUnitOfMeasure(String unitOfMeasure) {
+        this.unitOfMeasure = unitOfMeasure;
     }
 
     public String getLotNumber() {
@@ -127,14 +125,6 @@ public class InventoryCountDetail {
 
     public void setLotNumber(String lotNumber) {
         this.lotNumber = lotNumber;
-    }
-
-    public String getUnitOfMeasure() {
-        return unitOfMeasure;
-    }
-
-    public void setUnitOfMeasure(String unitOfMeasure) {
-        this.unitOfMeasure = unitOfMeasure;
     }
 
     public String getNotes() {
@@ -198,7 +188,7 @@ public class InventoryCountDetail {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        InventoryCountDetail that = (InventoryCountDetail) o;
+        InventoryCountDetailDto that = (InventoryCountDetailDto) o;
 
         return countDetailId != null ? countDetailId.equals(that.countDetailId) : that.countDetailId == null;
     }
@@ -210,7 +200,7 @@ public class InventoryCountDetail {
 
     @Override
     public String toString() {
-        return "InventoryCountDetail{" +
+        return "InventoryCountDetailDto{" +
                 "countDetailId=" + countDetailId +
                 ", countId=" + countId +
                 ", itemId=" + itemId +

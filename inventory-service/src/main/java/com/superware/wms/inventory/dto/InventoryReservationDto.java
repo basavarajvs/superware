@@ -1,72 +1,70 @@
-package com.superware.wms.inventory.entity;
+package com.superware.wms.inventory.dto;
 
-import org.hibernate.annotations.Filter;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-/**
- * Inventory reservations entity.
- */
-@Entity
-@Table(name = "inventory_reservations")
-@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
-public class InventoryReservation {
+@Schema(description = "Inventory reservation data transfer object")
+public class InventoryReservationDto {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "reservation_id")
+    @Schema(description = "Unique identifier of the inventory reservation", example = "1")
     private Integer reservationId;
 
-    @Column(name = "tenant_id")
+    @Schema(description = "Identifier of the tenant", example = "1")
     private Integer tenantId;
 
-    @Column(name = "reservation_type")
+    @Schema(description = "Type of reservation", example = "ORDER")
     private String reservationType;
 
-    @Column(name = "status")
+    @NotBlank(message = "Status is required")
+    @Schema(description = "Status of the reservation (e.g., RESERVED, RELEASED, CONFIRMED)", example = "RESERVED")
     private String status;
 
-    @Column(name = "reference_number")
+    @Schema(description = "Reference number", example = "REF123456")
     private String referenceNumber;
 
-    @Column(name = "reference_type")
+    @NotBlank(message = "Reference type is required")
+    @Schema(description = "Reference type (e.g., ORDER, WORK_ORDER)", example = "ORDER")
     private String referenceType;
 
-    @Column(name = "reference_id")
+    @NotNull(message = "Reference ID is required")
+    @Schema(description = "Reference ID", example = "100")
     private Integer referenceId;
 
-    @Column(name = "requested_date")
+    @Schema(description = "Requested date")
     private LocalDateTime requestedDate;
 
-    @Column(name = "expiry_date")
+    @Schema(description = "Expiry date")
     private LocalDateTime expiryDate;
 
-    @Column(name = "priority")
+    @Schema(description = "Priority", example = "1")
     private Integer priority;
 
-    @Column(name = "notes")
+    @Schema(description = "Notes about the reservation")
     private String notes;
 
-    @Column(name = "created_at")
+    @Schema(description = "Creation timestamp")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Schema(description = "Last update timestamp")
     private LocalDateTime updatedAt;
 
-    @Column(name = "created_by")
+    @Schema(description = "ID of the user who created the reservation", example = "1")
     private Integer createdBy;
 
-    @Column(name = "updated_by")
+    @Schema(description = "ID of the user who last updated the reservation", example = "1")
     private Integer updatedBy;
 
-    @Column(name = "is_deleted")
+    @Schema(description = "Whether the reservation is deleted", example = "false")
     private Boolean isDeleted;
 
     // Constructors
-    public InventoryReservation() {}
+    public InventoryReservationDto() {
+    }
 
-    // Getters and setters
+    // Getters and Setters
     public Integer getReservationId() {
         return reservationId;
     }
@@ -147,10 +145,6 @@ public class InventoryReservation {
         this.priority = priority;
     }
 
-    public Integer getId() {
-        return reservationId;
-    }
-
     public String getNotes() {
         return notes;
     }
@@ -204,7 +198,7 @@ public class InventoryReservation {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        InventoryReservation that = (InventoryReservation) o;
+        InventoryReservationDto that = (InventoryReservationDto) o;
 
         return reservationId != null ? reservationId.equals(that.reservationId) : that.reservationId == null;
     }
@@ -216,7 +210,7 @@ public class InventoryReservation {
 
     @Override
     public String toString() {
-        return "InventoryReservation{" +
+        return "InventoryReservationDto{" +
                 "reservationId=" + reservationId +
                 ", tenantId=" + tenantId +
                 ", reservationType='" + reservationType + '\'' +

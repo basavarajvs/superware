@@ -1,81 +1,80 @@
-package com.superware.wms.inventory.entity;
+package com.superware.wms.inventory.dto;
 
-import org.hibernate.annotations.Filter;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 
-import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * Inventory adjustments entity.
- */
-@Entity
-@Table(name = "inventory_adjustments")
-@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
-public class InventoryAdjustment {
+@Schema(description = "Inventory adjustment data transfer object")
+public class InventoryAdjustmentDto {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "adjustment_id")
+    @Schema(description = "Unique identifier of the inventory adjustment", example = "1")
     private Integer adjustmentId;
 
-    @Column(name = "tenant_id")
+    @Schema(description = "Identifier of the tenant", example = "1")
     private Integer tenantId;
 
-    @Column(name = "adjustment_number")
+    @Schema(description = "Adjustment number", example = "ADJ2023001")
     private String adjustmentNumber;
 
-    @Column(name = "adjustment_date")
+    @Schema(description = "Date of the adjustment")
     private LocalDateTime adjustmentDate;
 
-    @Column(name = "status")
+    @NotBlank(message = "Status is required")
+    @Schema(description = "Status of the adjustment (e.g., PENDING, APPROVED, REJECTED)", example = "APPROVED")
     private String status;
 
-    @Column(name = "adjustment_type")
+    @NotBlank(message = "Adjustment type is required")
+    @Schema(description = "Type of adjustment (e.g., INCREASE, DECREASE)", example = "INCREASE")
     private String adjustmentType;
 
-    @Column(name = "reason_code")
+    @Schema(description = "Reason code for the adjustment", example = "DAMAGE")
     private String reasonCode;
 
-    @Column(name = "reference_number")
+    @Schema(description = "Reference number", example = "REF123456")
     private String referenceNumber;
 
-    @Column(name = "reference_type")
+    @Schema(description = "Reference type", example = "ORDER")
     private String referenceType;
 
-    @Column(name = "reference_id")
+    @Schema(description = "Reference ID", example = "100")
     private Integer referenceId;
 
-    @Column(name = "notes")
+    @Schema(description = "Notes about the adjustment")
     private String notes;
 
-    @Column(name = "is_approved")
+    @Schema(description = "Whether the adjustment is approved", example = "true")
     private Boolean isApproved;
 
-    @Column(name = "approved_by")
+    @Schema(description = "ID of the user who approved the adjustment", example = "1")
     private Integer approvedBy;
 
-    @Column(name = "approved_at")
+    @Schema(description = "Approval timestamp")
     private LocalDateTime approvedAt;
 
-    @Column(name = "created_at")
+    @Schema(description = "Creation timestamp")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Schema(description = "Last update timestamp")
     private LocalDateTime updatedAt;
 
-    @Column(name = "created_by")
+    @Schema(description = "ID of the user who created the adjustment", example = "1")
     private Integer createdBy;
 
-    @Column(name = "updated_by")
+    @Schema(description = "ID of the user who last updated the adjustment", example = "1")
     private Integer updatedBy;
 
-    @Column(name = "is_deleted")
+    @Schema(description = "Whether the adjustment is deleted", example = "false")
     private Boolean isDeleted;
 
     // Constructors
-    public InventoryAdjustment() {}
+    public InventoryAdjustmentDto() {
+    }
 
-    // Getters and setters
+    // Getters and Setters
     public Integer getAdjustmentId() {
         return adjustmentId;
     }
@@ -132,14 +131,6 @@ public class InventoryAdjustment {
         this.reasonCode = reasonCode;
     }
 
-    public String getReason() {
-        return notes; // Using notes field to store reason
-    }
-
-    public void setReason(String reason) {
-        this.notes = reason; // Using notes field to store reason
-    }
-
     public String getReferenceNumber() {
         return referenceNumber;
     }
@@ -162,10 +153,6 @@ public class InventoryAdjustment {
 
     public void setReferenceId(Integer referenceId) {
         this.referenceId = referenceId;
-    }
-
-    public Integer getId() {
-        return adjustmentId;
     }
 
     public String getNotes() {
@@ -245,7 +232,7 @@ public class InventoryAdjustment {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        InventoryAdjustment that = (InventoryAdjustment) o;
+        InventoryAdjustmentDto that = (InventoryAdjustmentDto) o;
 
         return adjustmentId != null ? adjustmentId.equals(that.adjustmentId) : that.adjustmentId == null;
     }
@@ -257,7 +244,7 @@ public class InventoryAdjustment {
 
     @Override
     public String toString() {
-        return "InventoryAdjustment{" +
+        return "InventoryAdjustmentDto{" +
                 "adjustmentId=" + adjustmentId +
                 ", tenantId=" + tenantId +
                 ", adjustmentNumber='" + adjustmentNumber + '\'' +

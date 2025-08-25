@@ -1,76 +1,72 @@
-package com.superware.wms.inventory.entity;
+package com.superware.wms.inventory.dto;
 
-import org.hibernate.annotations.Filter;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * Inventory policies entity.
- */
-@Entity
-@Table(name = "inventory_policies")
-@Filter(name = "tenantFilter", condition = "tenant_id = :tenantId")
-public class InventoryPolicy {
+@Schema(description = "Inventory policy data transfer object")
+public class InventoryPolicyDto {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "policy_id")
+    @Schema(description = "Unique identifier of the inventory policy", example = "1")
     private Integer policyId;
 
-    @Column(name = "tenant_id")
+    @Schema(description = "Identifier of the tenant", example = "1")
     private Integer tenantId;
 
-    @Column(name = "product_id")
+    @NotNull(message = "Product ID is required")
+    @Schema(description = "Identifier of the product", example = "100")
     private Integer productId;
 
-    @Column(name = "variant_id")
+    @Schema(description = "Identifier of the product variant", example = "10")
     private Integer variantId;
 
-    @Column(name = "facility_id")
+    @Schema(description = "Identifier of the facility", example = "3")
     private Integer facilityId;
 
-    @Column(name = "min_stock_level")
+    @Schema(description = "Minimum stock level", example = "50.00")
     private BigDecimal minStockLevel;
 
-    @Column(name = "max_stock_level")
+    @Schema(description = "Maximum stock level", example = "500.00")
     private BigDecimal maxStockLevel;
 
-    @Column(name = "reorder_point")
+    @Schema(description = "Reorder point", example = "100.00")
     private BigDecimal reorderPoint;
 
-    @Column(name = "reorder_quantity")
+    @Schema(description = "Reorder quantity", example = "200.00")
     private BigDecimal reorderQuantity;
 
-    @Column(name = "valuation_method")
+    @Schema(description = "Valuation method", example = "FIFO")
     private String valuationMethod;
 
-    @Column(name = "abc_class")
+    @Schema(description = "ABC class", example = "A")
     private String abcClass;
 
-    @Column(name = "is_active")
+    @Schema(description = "Whether the policy is active", example = "true")
     private Boolean isActive;
 
-    @Column(name = "created_at")
+    @Schema(description = "Creation timestamp")
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Schema(description = "Last update timestamp")
     private LocalDateTime updatedAt;
 
-    @Column(name = "created_by")
+    @Schema(description = "ID of the user who created the policy", example = "1")
     private Integer createdBy;
 
-    @Column(name = "updated_by")
+    @Schema(description = "ID of the user who last updated the policy", example = "1")
     private Integer updatedBy;
 
-    @Column(name = "is_deleted")
+    @Schema(description = "Whether the policy is deleted", example = "false")
     private Boolean isDeleted;
 
     // Constructors
-    public InventoryPolicy() {}
+    public InventoryPolicyDto() {
+    }
 
-    // Getters and setters
+    // Getters and Setters
     public Integer getPolicyId() {
         return policyId;
     }
@@ -101,6 +97,14 @@ public class InventoryPolicy {
 
     public void setVariantId(Integer variantId) {
         this.variantId = variantId;
+    }
+
+    public Integer getFacilityId() {
+        return facilityId;
+    }
+
+    public void setFacilityId(Integer facilityId) {
+        this.facilityId = facilityId;
     }
 
     public BigDecimal getMinStockLevel() {
@@ -149,22 +153,6 @@ public class InventoryPolicy {
 
     public void setAbcClass(String abcClass) {
         this.abcClass = abcClass;
-    }
-
-    public String getAbcCategory() {
-        return abcClass;
-    }
-
-    public void setAbcCategory(String abcCategory) {
-        this.abcClass = abcCategory;
-    }
-
-    public Integer getFacilityId() {
-        return facilityId;
-    }
-
-    public void setFacilityId(Integer facilityId) {
-        this.facilityId = facilityId;
     }
 
     public Boolean getIsActive() {
@@ -220,7 +208,7 @@ public class InventoryPolicy {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        InventoryPolicy that = (InventoryPolicy) o;
+        InventoryPolicyDto that = (InventoryPolicyDto) o;
 
         return policyId != null ? policyId.equals(that.policyId) : that.policyId == null;
     }
@@ -232,11 +220,12 @@ public class InventoryPolicy {
 
     @Override
     public String toString() {
-        return "InventoryPolicy{" +
+        return "InventoryPolicyDto{" +
                 "policyId=" + policyId +
                 ", tenantId=" + tenantId +
                 ", productId=" + productId +
                 ", variantId=" + variantId +
+                ", facilityId=" + facilityId +
                 ", minStockLevel=" + minStockLevel +
                 ", maxStockLevel=" + maxStockLevel +
                 ", reorderPoint=" + reorderPoint +
